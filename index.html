@@ -255,7 +255,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="auth-error" id="loginError">Correo o contraseña incorrectos.</div>
     <div class="auth-input-group">
       <label>Correo electrónico</label>
-      <input type="email" id="loginEmail" placeholder="tucorreo@email.com">
+      <input type="email" id="loginEmail" placeholder="tucorreo@email.com" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <div class="auth-input-group">
       <label>Contraseña</label>
@@ -574,7 +574,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <!-- CHATBOT -->
 <button class="chatbot-btn" onclick="toggleChat()" title="Asistente BizWorld">
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.06L2 22l4.94-1.37A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.66 0-3.21-.49-4.5-1.33l-.32-.2-3.33.93.93-3.33-.2-.32A7.96 7.96 0 0 1 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8zm4.5-6c-.25-.12-1.47-.72-1.7-.8-.23-.08-.4-.12-.56.12-.17.25-.64.8-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.13-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.86.85-.86 2.07 0 1.22.89 2.4 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.06-.11-.23-.17-.48-.29z"/></svg>
+  <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="white">
+    <rect x="16" y="20" width="32" height="24" rx="6"/>
+    <rect x="22" y="28" width="6" height="6" rx="2" fill="#1D4E6B"/>
+    <rect x="36" y="28" width="6" height="6" rx="2" fill="#1D4E6B"/>
+    <rect x="26" y="36" width="12" height="3" rx="1.5" fill="#1D4E6B"/>
+    <rect x="30" y="14" width="4" height="8" rx="2"/>
+    <circle cx="32" cy="12" r="3"/>
+    <rect x="8" y="26" width="6" height="10" rx="3"/>
+    <rect x="50" y="26" width="6" height="10" rx="3"/>
+    <rect x="22" y="44" width="6" height="6" rx="2"/>
+    <rect x="36" y="44" width="6" height="6" rx="2"/>
+  </svg>
 </button>
 <div class="chatbot-window" id="chatWindow">
   <div class="chatbot-header">
@@ -664,12 +675,20 @@ function hideErr(id){ document.getElementById(id).style.display='none'; }
 async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
-  hideErr('loginError');
-  if(!email||!pass){ showErr('loginError','Completa todos los campos.'); return; }
+  const err=document.getElementById('loginError');
+  err.style.display='none';
+  if(!email){ err.textContent='Por favor escribe tu correo.'; err.style.display='block'; return; }
+  if(!pass){ err.textContent='Por favor escribe tu contraseña.'; err.style.display='block'; return; }
   try {
     await signInWithEmailAndPassword(auth, email, pass);
   } catch(e) {
-    showErr('loginError', e.code==='auth/invalid-credential'?'Correo o contraseña incorrectos.':'Error al iniciar sesión. Intenta de nuevo.');
+    err.style.background='#ffebee'; err.style.color='#c62828'; err.style.borderColor='#ef9a9a';
+    err.textContent = e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'?
+      'El correo o la contraseña no son correctos. Intenta de nuevo.' :
+      e.code==='auth/user-not-found'? 'No encontramos una cuenta con ese correo.' :
+      e.code==='auth/too-many-requests'? 'Demasiados intentos. Espera un momento e intenta de nuevo.' :
+      'Ocurrió un error. Intenta de nuevo.';
+    err.style.display='block';
   }
 }
 
@@ -836,12 +855,6 @@ const BUSINESSES={
 
 let G={};
 let reportPeriod=7;
-
-function saveG(){
-  if(!G.type||!currentUser) return;
-  localStorage.setItem(`bw_${currentUser.email}_${G.type}`,JSON.stringify(G));
-  localStorage.setItem(`bw_${currentUser.email}_last`,G.type);
-}
 
 function loadBusiness(type){
   if(!currentUser) return false;
@@ -1354,7 +1367,16 @@ window.togglePass=togglePass; window.suggestExpenses=suggestExpenses;
 window.setPeriod=setPeriod; window.downloadCSV=downloadCSV; window.downloadPDF=downloadPDF;
 window.nextOnboarding=nextOnboarding; window.skipOnboarding=skipOnboarding;
 
-// Firebase maneja el estado de sesión con onAuthStateChanged
+// Mostrar error correcto en login cuando falla
+function showLoginFeedback(msg, isSuccess=false){
+  const e=document.getElementById('loginError');
+  e.textContent=msg;
+  e.style.display='block';
+  e.style.background=isSuccess?'#e8f5e9':'#ffebee';
+  e.style.color=isSuccess?'#2e7d32':'#c62828';
+  e.style.borderColor=isSuccess?'#a5d6a7':'#ef9a9a';
+}
+
 window.onload=()=>{
   const demoActive=sessionStorage.getItem('bw_demo');
   if(demoActive){
