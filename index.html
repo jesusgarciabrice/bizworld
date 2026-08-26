@@ -204,14 +204,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .chatbot-send{padding:0.5rem 0.9rem;background:var(--teal);color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem;}
 
 /* ── CUSTOM BUSINESS MODAL ── */
-.modal-overlay{position:fixed;inset:0;background:rgba(13,43,62,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;transition:opacity 0.3s;}
+.modal-overlay{position:fixed;inset:0;background:rgba(13,43,62,0.7);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:300;opacity:0;pointer-events:none;transition:opacity 0.3s;padding:1rem;}
 .modal-overlay.open{opacity:1;pointer-events:all;}
-.modal{background:var(--white);border-radius:20px;padding:2rem;width:480px;max-width:95vw;transform:translateY(20px);transition:transform 0.3s;max-height:90vh;overflow-y:auto;}
+.modal{background:var(--white);border-radius:20px;padding:2rem;width:100%;max-width:560px;transform:translateY(20px);transition:transform 0.3s;max-height:90vh;overflow-y:auto;overflow-x:hidden;}
 .modal-overlay.open .modal{transform:translateY(0);}
 .modal h3{font-family:'Syne',sans-serif;font-size:1.3rem;color:var(--navy);margin-bottom:1.2rem;}
-.product-row{display:flex;gap:0.5rem;align-items:center;margin-bottom:0.6rem;}
-.product-row input{flex:1;padding:0.5rem 0.7rem;border:1.5px solid var(--border-input);border-radius:8px;font-size:0.85rem;font-family:'DM Sans',sans-serif;outline:none;}
-.product-row input:focus{border-color:var(--teal);}
+.product-row{display:grid;grid-template-columns:2fr 1fr 1fr 70px 90px 28px;gap:0.4rem;align-items:center;margin-bottom:0.5rem;}
+.product-row input,.product-row select{width:100%;padding:0.45rem 0.5rem;border:1.5px solid var(--border-input);border-radius:8px;font-size:0.8rem;font-family:'DM Sans',sans-serif;outline:none;min-width:0;}
+.product-row input:focus,.product-row select:focus{border-color:var(--teal);}
+.product-row-header{display:grid;grid-template-columns:2fr 1fr 1fr 70px 90px 28px;gap:0.4rem;margin-bottom:0.3rem;}
+.product-row-header span{font-size:0.7rem;color:var(--muted);font-weight:500;}
 
 /* ── TOOLTIPS ── */
 .tooltip-wrap{position:relative;display:inline-flex;align-items:center;gap:0.3rem;}
@@ -562,7 +564,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <input type="number" id="customExpenses" placeholder="Ej: 30000 — déjalo en 0 si no sabes aún" value="0">
     </div>
     <p id="expenseHint" style="font-size:0.8rem;color:var(--teal);margin-bottom:1rem;display:none"></p>
-    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.8rem">Agrega tus productos o servicios:</p>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.8rem">Agrega tus productos o servicios. <strong>Precio</strong> = lo que le cobras al cliente. <strong>Costo</strong> = lo que te costó a ti.</p>
     <div id="customProducts"></div>
     <button class="btn btn-outline btn-sm" onclick="addProductRow()" style="margin-bottom:1.2rem">+ Agregar producto</button>
     <div style="display:flex;gap:0.8rem">
@@ -965,7 +967,15 @@ function renderExpensesConfig(){
 // ══════════════════ NEGOCIO PERSONALIZADO ══════════════════
 function openCustomModal(){
   document.getElementById('customModal').classList.add('open');
-  document.getElementById('customProducts').innerHTML='';
+  document.getElementById('customProducts').innerHTML=`
+    <div class="product-row-header">
+      <span>Producto o servicio</span>
+      <span>Precio venta</span>
+      <span>Costo</span>
+      <span>Stock</span>
+      <span>Unidad</span>
+      <span></span>
+    </div>`;
   addProductRow(); addProductRow(); addProductRow();
 }
 function closeCustomModal(){ document.getElementById('customModal').classList.remove('open'); }
@@ -974,14 +984,14 @@ function addProductRow(){
   const div=document.createElement('div');
   div.className='product-row';
   div.innerHTML=`
-    <input placeholder="Producto o servicio" class="cp-name" style="flex:2">
-    <input type="number" placeholder="Precio (¿a cuánto lo vendes?)" class="cp-price" style="max-width:100px">
-    <input type="number" placeholder="Costo (¿cuánto te costó?)" class="cp-cost" style="max-width:100px">
-    <input type="number" placeholder="Stock" class="cp-stock" style="max-width:70px">
-    <select class="cp-unit" style="max-width:100px;padding:0.5rem 0.4rem;border:1.5px solid var(--border-input);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none;">
+    <input placeholder="Nombre" class="cp-name">
+    <input type="number" placeholder="$" class="cp-price">
+    <input type="number" placeholder="$" class="cp-cost">
+    <input type="number" placeholder="10" class="cp-stock" value="10">
+    <select class="cp-unit">
       <option value="unidad">Unidad</option>
       <option value="metro">Metro</option>
-      <option value="kg">Kilogramo</option>
+      <option value="kg">Kg</option>
       <option value="gramo">Gramo</option>
       <option value="litro">Litro</option>
       <option value="caja">Caja</option>
@@ -991,7 +1001,7 @@ function addProductRow(){
       <option value="rollo">Rollo</option>
       <option value="libra">Libra</option>
     </select>
-    <button onclick="this.parentNode.remove()" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:1.1rem;flex-shrink:0">✕</button>`;
+    <button onclick="this.parentNode.remove()" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:1rem;padding:0">✕</button>`;
   document.getElementById('customProducts').appendChild(div);
 }
 
