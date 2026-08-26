@@ -211,7 +211,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .product-row input{flex:1;padding:0.5rem 0.7rem;border:1.5px solid var(--border-input);border-radius:8px;font-size:0.85rem;font-family:'DM Sans',sans-serif;outline:none;}
 .product-row input:focus{border-color:var(--teal);}
 
-/* ── ACHIEVEMENTS ── */
+/* ── TOOLTIPS ── */
+.tooltip-wrap{position:relative;display:inline-flex;align-items:center;gap:0.3rem;}
+.tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--teal);color:white;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;line-height:1;}
+.tooltip-box{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 8px);background:var(--dark);color:white;font-size:0.78rem;padding:0.5rem 0.8rem;border-radius:8px;white-space:nowrap;z-index:999;opacity:0;pointer-events:none;transition:opacity 0.2s;max-width:220px;white-space:normal;text-align:left;line-height:1.4;}
+.tooltip-wrap:hover .tooltip-box{opacity:1;}
+/* ── PASSWORD EYE ── */
+.pass-wrap{position:relative;}
+.pass-wrap input{width:100%;padding-right:2.5rem;}
+.pass-eye{position:absolute;right:0.8rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;padding:0;}
 .achievements-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:0.8rem;}
 .achievement{background:var(--card);border-radius:14px;padding:1rem;text-align:center;border:1.5px solid var(--border-card);transition:all 0.2s;}
 .achievement.unlocked{border-color:var(--green);background:rgba(82,214,138,0.05);}
@@ -249,9 +257,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
     <div class="auth-input-group">
       <label>Contraseña</label>
-      <input type="password" id="loginPass" placeholder="••••••••">
+      <div class="pass-wrap">
+        <input type="password" id="loginPass" placeholder="••••••••">
+        <button class="pass-eye" onclick="togglePass('loginPass',this)" type="button">👁️</button>
+      </div>
     </div>
     <button class="auth-btn" onclick="doLogin()">Iniciar sesión</button>
+    <div style="text-align:right;margin-top:0.5rem"><a onclick="forgotPassword()" style="font-size:0.82rem;color:var(--teal);cursor:pointer">¿Olvidaste tu contraseña?</a></div>
     <div class="auth-switch">¿No tienes cuenta? <a onclick="showRegister()">Regístrate gratis</a></div>
     <div class="auth-divider"><span>o</span></div>
     <div class="auth-switch"><a onclick="demoLogin()">🎮 Entrar en modo demo</a></div>
@@ -275,7 +287,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
     <div class="auth-input-group">
       <label>Contraseña</label>
-      <input type="password" id="regPass" placeholder="Mínimo 6 caracteres">
+      <div class="pass-wrap">
+        <input type="password" id="regPass" placeholder="Mínimo 6 caracteres">
+        <button class="pass-eye" onclick="togglePass('regPass',this)" type="button">👁️</button>
+      </div>
     </div>
     <button class="auth-btn" onclick="doRegister()">Crear cuenta</button>
     <div class="auth-switch">¿Ya tienes cuenta? <a onclick="showLogin()">Inicia sesión</a></div>
@@ -334,16 +349,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   <div class="app-body">
     <div class="sidebar">
       <div class="sidebar-section">Principal</div>
-      <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
-      <div class="nav-item" onclick="showPage('ventas')"><span class="nav-icon">💰</span> Ventas</div>
-      <div class="nav-item" onclick="showPage('inventario')"><span class="nav-icon">📦</span> Inventario</div>
+      <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon"></span> Panel principal</div>
+      <div class="nav-item" onclick="showPage('ventas')"><span class="nav-icon"></span> Ventas</div>
+      <div class="nav-item" onclick="showPage('inventario')"><span class="nav-icon"></span> Inventario</div>
       <div class="sidebar-section">Análisis</div>
-      <div class="nav-item" onclick="showPage('finanzas')"><span class="nav-icon">📈</span> Resultados</div>
-      <div class="nav-item" onclick="showPage('reportes')"><span class="nav-icon">📋</span> Reportes</div>
+      <div class="nav-item" onclick="showPage('finanzas')"><span class="nav-icon"></span> Resultados</div>
+      <div class="nav-item" onclick="showPage('reportes')"><span class="nav-icon"></span> Reportes</div>
       <div class="sidebar-section">Extra</div>
-      <div class="nav-item" onclick="showPage('logros')"><span class="nav-icon">🏆</span> Logros</div>
-      <div class="nav-item" onclick="nextDay()"><span class="nav-icon">⏩</span> Cerrar el día de hoy</div>
-      <div class="nav-item" onclick="goToLanding()"><span class="nav-icon">🔄</span> Cambiar negocio</div>
+      <div class="nav-item" onclick="showPage('logros')"><span class="nav-icon"></span> Logros</div>
+      <div class="nav-item" onclick="nextDay()"><span class="nav-icon"></span> Cerrar el día de hoy</div>
+      <div class="nav-item" onclick="goToLanding()"><span class="nav-icon"></span> Cambiar negocio</div>
     </div>
     <div class="main">
 
@@ -352,21 +367,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
         <div id="challengeBox"></div>
         <div class="welcome-header">
           <div>
-            <h2 id="welcomeTitle">Bienvenido 🏪</h2>
-            <p id="welcomeSub">Revisa tus indicadores y toma decisiones para crecer.</p>
+            <h2 id="welcomeTitle">Bienvenido</h2>
+            <p id="welcomeSub">Aquí puedes ver cómo va tu negocio.</p>
           </div>
-          <button class="btn btn-primary" onclick="nextDay()">⏩ Cerrar día</button>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="nextDay()">Cerrar el día de hoy</button>
+            <button class="btn btn-outline btn-sm" onclick="undoDay()" id="undoDayBtn" style="display:none">↩ Deshacer último día</button>
+          </div>
         </div>
         <div id="checklistBox"></div>
         <div class="stat-grid" id="statGrid"></div>
         <div id="alertsBox"></div>
         <div class="two-col">
           <div class="chart-card">
-            <div class="sec-title">💵 Ventas por día</div>
+            <div class="sec-title">Lo que has vendido cada día
+              <span class="tooltip-wrap" style="margin-left:0.3rem">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-box">Esta gráfica muestra cuánto dinero entraste cada día. Si la línea sube, ¡vas mejor!</span>
+              </span>
+            </div>
             <div style="position:relative;height:160px"><canvas id="salesChart"></canvas></div>
           </div>
           <div class="chart-card">
-            <div class="sec-title">🥧 Ingresos por producto</div>
+            <div class="sec-title">Qué productos vendiste más
+              <span class="tooltip-wrap" style="margin-left:0.3rem">
+                <span class="tooltip-icon">?</span>
+                <span class="tooltip-box">Muestra qué productos te generan más dinero. Los colores más grandes son los que más vendes.</span>
+              </span>
+            </div>
             <div style="position:relative;height:160px"><canvas id="pieChart"></canvas></div>
           </div>
         </div>
@@ -374,13 +402,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
       <!-- VENTAS -->
       <div class="page" id="page-ventas">
-        <div class="sec-title">💰 Registrar venta</div>
+        <div class="sec-title">Registrar venta</div>
         <div class="chart-card" style="margin-bottom:1.5rem">
           <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">El stock se descuenta automáticamente al registrar.</p>
           <div class="form-row" id="saleFormRow"></div>
           <button class="btn btn-primary" onclick="registerSale()">✅ Confirmar venta</button>
         </div>
-        <div class="sec-title">📋 Ventas del día</div>
+        <div class="sec-title">Historial del día</div>
         <div class="chart-card">
           <div class="sale-log" id="saleLog"><p style="color:var(--muted);font-size:0.9rem">Aún no hay ventas hoy.</p></div>
           <div style="margin-top:1rem;padding-top:1rem;border-top:1.5px solid rgba(42,157,143,0.15);display:flex;justify-content:space-between;align-items:center">
@@ -392,24 +420,40 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
       <!-- INVENTARIO -->
       <div class="page" id="page-inventario">
-        <div class="sec-title">📦 Inventario actual</div>
+        <div class="sec-title">Inventario actual</div>
         <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Productos en rojo necesitan reposición urgente.</p>
         <div class="chart-card" style="margin-bottom:1.5rem;overflow-x:auto">
           <table class="inv-table" id="invTable"></table>
         </div>
-        <div class="sec-title">🛒 Reponer stock</div>
+        <div class="sec-title">Reponer productos</div>
         <div class="chart-card" style="margin-bottom:1.5rem">
           <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">El costo se descuenta de tu capital disponible.</p>
           <div class="form-row" id="buyFormRow"></div>
           <button class="btn btn-primary" onclick="buyStock()">📦 Confirmar compra</button>
         </div>
-        <div class="sec-title">➕ Agregar nuevo producto</div>
+        <div class="sec-title">Agregar nuevo producto</div>
         <div class="chart-card" style="margin-bottom:1.5rem">
           <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Agrega productos o servicios nuevos a tu catálogo en cualquier momento.</p>
           <div class="form-row">
             <div class="form-group"><label>Nombre del producto</label><input type="text" id="newProdName" placeholder="Ej: Tela algodón, Salmón, Corte..."></div>
-            <div class="form-group" style="max-width:120px"><label>Precio venta ($)</label><input type="number" id="newProdPrice" placeholder="50000"></div>
-            <div class="form-group" style="max-width:120px"><label>Costo unitario ($)</label><input type="number" id="newProdCost" placeholder="25000"></div>
+            <div class="form-group" style="max-width:120px">
+              <label>
+                <span class="tooltip-wrap">Precio de venta ($)
+                  <span class="tooltip-icon">?</span>
+                  <span class="tooltip-box">Es el valor al que tú le vendes el producto al cliente. Ejemplo: vendes una tela a $25.000</span>
+                </span>
+              </label>
+              <input type="number" id="newProdPrice" placeholder="50000">
+            </div>
+            <div class="form-group" style="max-width:120px">
+              <label>
+                <span class="tooltip-wrap">Costo unitario ($)
+                  <span class="tooltip-icon">?</span>
+                  <span class="tooltip-box">Es lo que tú pagaste para conseguir ese producto. La diferencia entre el precio y el costo es tu ganancia.</span>
+                </span>
+              </label>
+              <input type="number" id="newProdCost" placeholder="25000">
+            </div>
             <div class="form-group" style="max-width:90px"><label>Stock</label><input type="number" id="newProdStock" placeholder="10" value="10"></div>
             <div class="form-group" style="max-width:110px">
               <label>Unidad</label>
@@ -430,7 +474,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           </div>
           <button class="btn btn-primary" onclick="addNewProduct()">➕ Agregar producto</button>
         </div>
-        <div class="sec-title">⚙️ Configurar gastos fijos diarios</div>
+        <div class="sec-title">Configurar gastos fijos diarios</div>
         <div class="chart-card">
           <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Si ya sabes cuánto gastas diariamente (arriendo, servicios, nómina), configúralo aquí. Se descontará automáticamente cada día.</p>
           <div class="form-row" style="align-items:flex-end">
@@ -446,18 +490,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
       <!-- FINANZAS -->
       <div class="page" id="page-finanzas">
-        <div class="sec-title">📈 Estado de resultados</div>
+        <div class="sec-title">Estado de resultados</div>
         <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Aquí puedes ver cómo va el dinero de tu negocio — cuánto has vendido, cuánto has gastado y si estás ganando o perdiendo.</p>
         <div class="stat-grid" id="finGrid"></div>
         <div class="chart-card">
-          <div class="sec-title">📅 Evolución financiera</div>
+          <div class="sec-title">Evolución financiera</div>
           <div style="position:relative;height:180px"><canvas id="finChart"></canvas></div>
         </div>
       </div>
 
       <!-- REPORTES -->
       <div class="page" id="page-reportes">
-        <div class="sec-title">📋 Reportes financieros</div>
+        <div class="sec-title">Reportes financieros</div>
         <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Selecciona el período y descarga tu reporte.</p>
         <div class="report-filters">
           <button class="period-btn active" onclick="setPeriod(7,this)">7 días</button>
@@ -482,7 +526,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
       <!-- LOGROS -->
       <div class="page" id="page-logros">
-        <div class="sec-title">🏆 Logros y retos</div>
+        <div class="sec-title">Logros y retos</div>
         <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">Desbloquea logros completando metas en tu negocio.</p>
         <div class="achievements-grid" id="achievementsGrid"></div>
       </div>
@@ -523,11 +567,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 </div>
 
 <!-- CHATBOT -->
-<button class="chatbot-btn" onclick="toggleChat()" title="Asistente BizWorld">🤖</button>
+<button class="chatbot-btn" onclick="toggleChat()" title="Asistente BizWorld">Ayuda</button>
 <div class="chatbot-window" id="chatWindow">
   <div class="chatbot-header">
     <div class="chatbot-header-info">
-      <div class="chatbot-avatar">🤖</div>
+      <div class="chatbot-avatar">B</div>
       <div>
         <div class="chatbot-name">Asistente BizWorld</div>
         <div class="chatbot-status">● En línea</div>
@@ -546,8 +590,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div id="toast">✅ Operación registrada</div>
 
-<script>
+<script type="module">
 // ══════════════════ GASTOS SUGERIDOS ══════════════════
+function togglePass(id, btn){
+  const input=document.getElementById(id);
+  if(input.type==='password'){ input.type='text'; btn.textContent='🙈'; }
+  else { input.type='password'; btn.textContent='👁️'; }
+}
 function suggestExpenses(tipo){
   const t=tipo.toLowerCase();
   const sugerencias=[
@@ -576,59 +625,137 @@ function suggestExpenses(tipo){
   }
 }
 
-// ══════════════════ USUARIOS ══════════════════
-let currentUser = null;
+// ══════════════════ FIREBASE ══════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-function getUsers(){ return JSON.parse(localStorage.getItem('bw_users')||'{}'); }
-function saveUsers(u){ localStorage.setItem('bw_users',JSON.stringify(u)); }
-function getCurrentUser(){ return JSON.parse(localStorage.getItem('bw_current')||'null'); }
-function setCurrentUser(u){ localStorage.setItem('bw_current',JSON.stringify(u)); }
+const firebaseConfig = {
+  apiKey: "AIzaSyAGK2yJX6ucfqt1d2RRLO-fCrEpsS0hxbQ",
+  authDomain: "bizworld-702f1.firebaseapp.com",
+  projectId: "bizworld-702f1",
+  storageBucket: "bizworld-702f1.firebasestorage.app",
+  messagingSenderId: "917084072468",
+  appId: "1:917084072468:web:6424e2c1a2404854b99501"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+let currentUser = null;
 
 function showLogin(){ document.getElementById('loginScreen').style.display='flex'; document.getElementById('registerScreen').style.display='none'; }
 function showRegister(){ document.getElementById('registerScreen').style.display='flex'; document.getElementById('loginScreen').style.display='none'; }
 
-function doLogin(){
+function showErr(id, msg){ const e=document.getElementById(id); e.textContent=msg; e.style.display='block'; }
+function hideErr(id){ document.getElementById(id).style.display='none'; }
+
+async function doLogin(){
   const email=document.getElementById('loginEmail').value.trim();
   const pass=document.getElementById('loginPass').value;
-  const users=getUsers();
-  const err=document.getElementById('loginError');
-  if(!users[email]||users[email].pass!==pass){ err.style.display='block'; return; }
-  err.style.display='none';
-  currentUser=users[email];
-  setCurrentUser(currentUser);
-  const firstTime=!localStorage.getItem('bw_onboard_'+email);
-  if(firstTime){ showOnboarding(); } else { showLanding(); }
+  hideErr('loginError');
+  if(!email||!pass){ showErr('loginError','Completa todos los campos.'); return; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    showErr('loginError', e.code==='auth/invalid-credential'?'Correo o contraseña incorrectos.':'Error al iniciar sesión. Intenta de nuevo.');
+  }
 }
 
-function doRegister(){
+async function doRegister(){
   const name=document.getElementById('regName').value.trim();
   const email=document.getElementById('regEmail').value.trim();
   const pass=document.getElementById('regPass').value;
-  const err=document.getElementById('registerError');
-  if(!name||!email||!pass){ err.textContent='Completa todos los campos.'; err.style.display='block'; return; }
-  if(pass.length<6){ err.textContent='La contraseña debe tener mínimo 6 caracteres.'; err.style.display='block'; return; }
-  const users=getUsers();
-  if(users[email]){ err.textContent='Este correo ya está registrado.'; err.style.display='block'; return; }
-  users[email]={name,email,pass,avatar:name[0].toUpperCase()};
-  saveUsers(users);
-  currentUser=users[email];
-  setCurrentUser(currentUser);
-  showOnboarding();
+  hideErr('registerError');
+  if(!name||!email||!pass){ showErr('registerError','Completa todos los campos.'); return; }
+  if(pass.length<6){ showErr('registerError','La contraseña debe tener mínimo 6 caracteres.'); return; }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await updateProfile(cred.user, { displayName: name });
+    await setDoc(doc(db,'users',cred.user.uid),{ name, email, createdAt: new Date().toISOString() });
+  } catch(e) {
+    showErr('registerError', e.code==='auth/email-already-in-use'?'Este correo ya está registrado.':'Error al crear la cuenta. Intenta de nuevo.');
+  }
+}
+
+async function forgotPassword(){
+  const email=document.getElementById('loginEmail').value.trim();
+  if(!email){ showErr('loginError','Escribe tu correo primero para recuperar tu contraseña.'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    showErr('loginError','Te enviamos un correo para recuperar tu contraseña. Revisa tu bandeja de entrada.');
+    document.getElementById('loginError').style.background='#e8f5e9';
+    document.getElementById('loginError').style.color='#2e7d32';
+    document.getElementById('loginError').style.borderColor='#a5d6a7';
+  } catch(e) {
+    showErr('loginError','No encontramos una cuenta con ese correo.');
+  }
 }
 
 function demoLogin(){
-  currentUser={name:'Demo',email:'demo@bizworld.com',avatar:'D'};
-  setCurrentUser(currentUser);
+  currentUser={uid:'demo',name:'Demo',email:'demo@bizworld.com',avatar:'D'};
+  sessionStorage.setItem('bw_demo','1');
   showLanding();
 }
 
-function doLogout(){
-  currentUser=null;
-  localStorage.removeItem('bw_current');
-  G={};
+async function doLogout(){
+  if(currentUser?.uid!=='demo') await signOut(auth);
+  currentUser=null; G={};
   document.getElementById('app').style.display='none';
   document.getElementById('landing').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
+}
+
+// ── Escucha cambios de sesión Firebase
+onAuthStateChanged(auth, async (user)=>{
+  if(user){
+    currentUser={ uid:user.uid, name:user.displayName||user.email.split('@')[0], email:user.email, avatar:(user.displayName||user.email)[0].toUpperCase() };
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('registerScreen').style.display='none';
+    // Cargar último negocio desde Firestore
+    const snap = await getDoc(doc(db,'gameData',user.uid+'_last'));
+    if(snap.exists()){
+      const lastType=snap.data().type;
+      if(lastType && await loadBusiness(lastType)){
+        const b=BUSINESSES[lastType]||G._bizDef||{icon:'',name:'tu negocio'};
+        launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo, ${currentUser.name}`);
+        return;
+      }
+    }
+    const firstTime=!localStorage.getItem('bw_onboard_'+user.uid);
+    if(firstTime) showOnboarding(); else showLanding();
+  }
+});
+
+// ══════════════════ GUARDAR / CARGAR EN FIRESTORE ══════════════════
+async function saveG(){
+  if(!G.type||!currentUser) return;
+  const key=currentUser.uid==='demo'?null:currentUser.uid;
+  if(key){
+    try{
+      await setDoc(doc(db,'gameData',key+'_'+G.type), G);
+      await setDoc(doc(db,'gameData',key+'_last'),{type:G.type});
+    }catch(e){ /* falla silenciosa */ }
+  }
+  // También local como respaldo
+  localStorage.setItem(`bw_${currentUser.uid}_${G.type}`, JSON.stringify(G));
+  localStorage.setItem(`bw_${currentUser.uid}_last`, G.type);
+}
+
+async function loadBusiness(type){
+  if(!currentUser) return false;
+  // Intentar desde Firestore primero
+  if(currentUser.uid!=='demo'){
+    try{
+      const snap=await getDoc(doc(db,'gameData',currentUser.uid+'_'+type));
+      if(snap.exists()){ G=snap.data(); return true; }
+    }catch(e){}
+  }
+  // Fallback a local
+  const d=localStorage.getItem(`bw_${currentUser.uid}_${type}`);
+  if(d){ G=JSON.parse(d); return true; }
+  return false;
 }
 
 // ══════════════════ ONBOARDING ══════════════════
@@ -739,7 +866,7 @@ function startGame(type){
     G={type,day:1,capital:b.capital,products:b.products.map(p=>({...p})),expenses:b.expenses,sales:[],history:[],todaySales:[],todayIncome:0,achievements:{}};
     preloadDemo(type);
   }
-  launchApp(b.icon+' '+b.name, `Bienvenido a tu ${b.name} ${b.icon}`);
+  launchApp(b.icon+' '+b.name, `Bienvenido a tu negocio "${b.name}" ${b.icon}`);
 }
 
 function launchApp(badgeName, welcomeTitle){
@@ -747,7 +874,7 @@ function launchApp(badgeName, welcomeTitle){
   document.getElementById('app').style.display='block';
   document.getElementById('topBizName').textContent=badgeName;
   document.getElementById('welcomeTitle').textContent=welcomeTitle;
-  document.getElementById('welcomeSub').textContent='Aquí ves el estado de tu negocio. Registra ventas, revisa el inventario y toma decisiones.';
+  document.getElementById('welcomeSub').textContent=`Aquí puedes ver cómo va tu negocio. Registra lo que vendes, revisa tus productos y toma decisiones para crecer.`;
   if(currentUser) document.getElementById('userAvatar').textContent=currentUser.avatar||'U';
   updateTopDay(); buildSaleForm(); buildBuyForm(); renderAll(); showPage('dashboard');
 }
@@ -807,8 +934,8 @@ function addProductRow(){
   div.className='product-row';
   div.innerHTML=`
     <input placeholder="Producto o servicio" class="cp-name" style="flex:2">
-    <input type="number" placeholder="Precio" class="cp-price" style="max-width:100px">
-    <input type="number" placeholder="Costo" class="cp-cost" style="max-width:100px">
+    <input type="number" placeholder="Precio (¿a cuánto lo vendes?)" class="cp-price" style="max-width:100px">
+    <input type="number" placeholder="Costo (¿cuánto te costó?)" class="cp-cost" style="max-width:100px">
     <input type="number" placeholder="Stock" class="cp-stock" style="max-width:70px">
     <select class="cp-unit" style="max-width:100px;padding:0.5rem 0.4rem;border:1.5px solid var(--border-input);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;outline:none;">
       <option value="unidad">Unidad</option>
@@ -849,15 +976,35 @@ function saveCustomBusiness(){
     _bizDef:{name,icon:'⚙️',capital,expenses,products}};
   closeCustomModal();
   document.getElementById('landing').style.display='none';
-  launchApp(`⚙️ ${name}`,`Bienvenido a tu ${name} ⚙️`);
+  launchApp(`⚙️ ${name}`,`Bienvenido a tu negocio "${name}" ⚙️`);
 }
 
 // ══════════════════ JUEGO ══════════════════
 function nextDay(){
+  // Guardar snapshot para deshacer
+  G._lastSnapshot = JSON.stringify({
+    day: G.day, capital: G.capital, history: [...G.history],
+    products: G.products.map(p=>({...p})),
+    sales: [...G.sales], todaySales: [...G.todaySales],
+    todayIncome: G.todayIncome
+  });
   G.history.push({day:G.day,income:G.todayIncome,expense:G.expenses,profit:G.todayIncome-G.expenses});
   G.capital-=G.expenses; G.day++; G.todaySales=[]; G.todayIncome=0;
   updateTopDay(); checkAchievements(); saveG(); renderAll();
-  toast(`☀️ Día ${G.day} iniciado. Gastos: ${fmt(G.expenses)} descontados.`);
+  document.getElementById('undoDayBtn').style.display='inline-flex';
+  toast(`Día ${G.day} iniciado. Se descontaron ${fmt(G.expenses)} de gastos fijos.`);
+}
+
+function undoDay(){
+  if(!G._lastSnapshot){ toast('No hay nada que deshacer.'); return; }
+  const snap=JSON.parse(G._lastSnapshot);
+  G.day=snap.day; G.capital=snap.capital; G.history=snap.history;
+  G.products=snap.products; G.sales=snap.sales;
+  G.todaySales=snap.todaySales; G.todayIncome=snap.todayIncome;
+  G._lastSnapshot=null;
+  updateTopDay(); saveG(); renderAll();
+  document.getElementById('undoDayBtn').style.display='none';
+  toast('Día deshecho correctamente. Volviste al día '+G.day+'.');
 }
 
 function updateTopDay(){ document.getElementById('topDay').textContent=`Día ${G.day}`; }
@@ -924,20 +1071,20 @@ function renderStats(){
   const te=G.history.reduce((a,h)=>a+h.expense,0)+G.expenses;
   const profit=ts-te;
   document.getElementById('statGrid').innerHTML=`
-    <div class="stat-card"><div class="stat-icon">💵</div><div class="stat-label">Dinero disponible</div><div class="stat-value">${fmtK(G.capital)}</div><div class="stat-sub">En tu negocio ahora</div></div>
-    <div class="stat-card"><div class="stat-icon">📈</div><div class="stat-label">Total vendido</div><div class="stat-value">${fmtK(ts)}</div><div class="stat-sub">${G.sales.length} ventas realizadas</div></div>
-    <div class="stat-card"><div class="stat-icon">💰</div><div class="stat-label">Ventas de hoy</div><div class="stat-value">${fmtK(G.todayIncome)}</div><div class="stat-sub">Día ${G.day}</div></div>
-    <div class="stat-card"><div class="stat-icon">📦</div><div class="stat-label">Productos disponibles</div><div class="stat-value">${G.products.reduce((a,p)=>a+p.stock,0)}</div><div class="stat-sub">en tu inventario</div></div>
-    <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-label">Días simulados</div><div class="stat-value">${G.day}</div><div class="stat-sub">simulado</div></div>
+    <div class="stat-card"><div class="stat-label">Dinero disponible</div><div class="stat-value">${fmtK(G.capital)}</div><div class="stat-sub">En tu negocio ahora</div></div>
+    <div class="stat-card"><div class="stat-label">Total vendido</div><div class="stat-value">${fmtK(ts)}</div><div class="stat-sub">${G.sales.length} ventas realizadas</div></div>
+    <div class="stat-card"><div class="stat-label">Ventas de hoy</div><div class="stat-value">${fmtK(G.todayIncome)}</div><div class="stat-sub">Día ${G.day}</div></div>
+    <div class="stat-card"><div class="stat-label">Productos disponibles</div><div class="stat-value">${G.products.reduce((a,p)=>a+p.stock,0)}</div><div class="stat-sub">en tu inventario</div></div>
+    <div class="stat-card"><div class="stat-label">Días simulados</div><div class="stat-value">${G.day}</div><div class="stat-sub">simulado</div></div>
     <div class="stat-card"><div class="stat-icon">${profit>=0?'✅':'🔴'}</div><div class="stat-label">Ganancia del negocio</div><div class="stat-value">${fmtK(profit)}</div><div class="${profit>=0?'stat-up':'stat-down'}">${profit>=0?'▲ Estás ganando':'▼ Estás perdiendo'}</div></div>`;
 }
 
 function renderAlerts(){
   const a=[];
-  if(!G.expenses||G.expenses===0) a.push(`<div class="alert alert-warn">💡 <strong>Recuerda:</strong> No has configurado tus gastos fijos diarios. Ve a <strong>Inventario → Configurar gastos fijos</strong> para agregarlos. Si aún no sabes cuánto gastas, puedes hacerlo después.</div>`);
-  G.products.forEach(p=>{ if(p.stock<5) a.push(`<div class="alert alert-warn">⚠️ <strong>${p.name}</strong> — solo ${p.stock} ${p.unit||'unidades'} disponibles</div>`); });
-  if(G.capital<50000) a.push(`<div class="alert alert-warn">🔴 Capital bajo (${fmt(G.capital)}) — revisa tus gastos</div>`);
-  if(!a.length) a.push(`<div class="alert alert-info">✅ Todo en orden — tu negocio opera sin problemas</div>`);
+  if(!G.expenses||G.expenses===0) a.push(`<div class="alert alert-warn">Recuerda: No has configurado tus gastos fijos diarios. Ve a <strong>Inventario → Configurar gastos fijos</strong> para agregarlos. Si aún no sabes cuánto gastas, puedes hacerlo después.</div>`);
+  G.products.forEach(p=>{ if(p.stock<5) a.push(`<div class="alert alert-warn">— ${p.name}</strong> — solo ${p.stock} ${p.unit||'unidades'} disponibles</div>`); });
+  if(G.capital<50000) a.push(`<div class="alert alert-warn">Capital bajo (${fmt(G.capital)}) — revisa tus gastos</div>`);
+  if(!a.length) a.push(`<div class="alert alert-info">Tu negocio opera sin problemas hoy</div>`);
   document.getElementById('alertsBox').innerHTML=a.join('');
 }
 
@@ -1093,14 +1240,71 @@ function getBotResponse(msg){
   const m=msg.toLowerCase();
   const ts=G.sales?G.sales.reduce((a,s)=>a+s.total,0):0;
   const te=G.history?G.history.reduce((a,h)=>a+h.expense,0):0;
-  if(m.includes('venta')||m.includes('ingres')) return `📊 Llevas ${fmt(ts)} en ventas totales con ${G.sales?.length||0} transacciones. ${ts>te?'¡Vas bien!':'Intenta vender más para cubrir los gastos fijos.'}`;
-  if(m.includes('stock')||m.includes('inventario')){ const bajo=G.products?.filter(p=>p.stock<5)||[]; return bajo.length?`⚠️ Tienes ${bajo.length} producto(s) con stock bajo: ${bajo.map(p=>p.name).join(', ')}. ¡Repón pronto!`:'✅ Tu inventario está en buen estado.'; }
-  if(m.includes('capital')||m.includes('dinero')) return `💵 Tu capital actual es ${fmt(G.capital||0)}. ${(G.capital||0)<50000?'⚠️ Está bajo, administra bien tus gastos.':'¡Tienes buen capital disponible!'}`;
-  if(m.includes('ganancia')||m.includes('utilidad')){ const p=ts-te; return `📈 Tu utilidad neta es ${fmt(p)}. ${p>0?'¡Estás generando ganancias! Sigue así.':'Tus gastos superan tus ingresos. Intenta vender más.'}`; }
-  if(m.includes('dia')||m.includes('día')) return `📅 Estás en el día ${G.day||1} de simulación. Cada día se descuentan ${fmt(G.expenses||0)} de gastos fijos.`;
-  if(m.includes('reporte')||m.includes('csv')||m.includes('pdf')) return '📋 Ve al módulo de Reportes en el menú lateral. Puedes filtrar por período y descargar en CSV o PDF.';
-  if(m.includes('hola')||m.includes('ayuda')) return `¡Hola! 👋 Puedo ayudarte con información sobre tus ventas, inventario, capital, ganancias o reportes. ¿Qué necesitas saber?`;
-  return '🤖 Puedo ayudarte con: ventas, inventario, capital, ganancias, días o reportes. ¿Sobre qué quieres saber?';
+  const profit=ts-te;
+  const negocio=G._bizDef?.name||G.type||'tu negocio';
+
+  // Saludo
+  if(m.includes('hola')||m.includes('buenas')||m.includes('hey'))
+    return `¡Hola! 👋 Soy el asistente de BizWorld. Puedo ayudarte con todo lo relacionado a tu negocio "${negocio}". Pregúntame sobre tus ventas, inventario, dinero disponible, ganancias, reportes, logros o cómo usar la plataforma.`;
+
+  // Ayuda general
+  if(m.includes('ayuda')||m.includes('qué puedes')||m.includes('para qué'))
+    return `Puedo ayudarte con:\n💰 Tus ventas del día y totales\n📦 El estado de tu inventario\n💵 El dinero que tienes disponible\n📈 Si estás ganando o perdiendo\n📋 Cómo descargar reportes\n🏆 Tus logros desbloqueados\n⚙️ Cómo usar cada parte de la plataforma\n\n¿Sobre qué quieres saber?`;
+
+  // Ventas
+  if(m.includes('venta')||m.includes('vendido')||m.includes('ingreso'))
+    return `💰 En tu negocio "${negocio}" llevas ${fmt(ts)} en ventas totales con ${G.sales?.length||0} ventas registradas. Hoy llevas ${fmt(G.todayIncome||0)}. ${ts>te?'¡Vas muy bien!':'Intenta registrar más ventas para cubrir tus gastos.'}`;
+
+  // Inventario
+  if(m.includes('inventario')||m.includes('producto')||m.includes('stock')||m.includes('cantidad')){
+    const bajo=G.products?.filter(p=>p.stock<5)||[];
+    return bajo.length
+      ?`⚠️ Tienes ${bajo.length} producto(s) con poca cantidad: ${bajo.map(p=>p.name).join(', ')}. Ve a Inventario → Reponer para comprar más.`
+      :`✅ Tu inventario está bien. Tienes ${G.products?.reduce((a,p)=>a+p.stock,0)||0} unidades en total disponibles para vender.`;
+  }
+
+  // Dinero / capital
+  if(m.includes('dinero')||m.includes('capital')||m.includes('plata')||m.includes('cuánto tengo'))
+    return `💵 Ahora mismo tienes ${fmt(G.capital||0)} disponibles en tu negocio. ${(G.capital||0)<50000?'⚠️ Está un poco bajo — trata de no gastar más de lo necesario.':'¡Tienes buen capital para seguir operando!'}`;
+
+  // Ganancias
+  if(m.includes('ganancia')||m.includes('perdiendo')||m.includes('ganando')||m.includes('resultado'))
+    return `📈 ${profit>0?`¡Estás ganando! Tu ganancia es de ${fmt(profit)}. Llevas ${fmt(ts)} vendido y ${fmt(te)} en gastos.`:`Aún estás en pérdida de ${fmt(Math.abs(profit))}. Llevas ${fmt(ts)} vendido pero ${fmt(te)} en gastos. Intenta vender más o reducir gastos.`}`;
+
+  // Gastos
+  if(m.includes('gasto')||m.includes('fijo')||m.includes('cuánto gasto'))
+    return `⚙️ Tus gastos fijos son de ${fmt(G.expenses||0)} por día. Llevas ${fmt(te)} en gastos acumulados. ${!G.expenses?'💡 Tip: Aún no has configurado tus gastos fijos. Ve a Inventario → Configurar gastos fijos.':''}`;
+
+  // Días
+  if(m.includes('dia')||m.includes('día')||m.includes('llevas'))
+    return `📅 Llevas ${G.day||1} días simulando tu negocio "${negocio}". Cada vez que haces clic en "Cerrar el día de hoy" avanzas un día y se descuentan tus gastos fijos.`;
+
+  // Reportes
+  if(m.includes('reporte')||m.includes('descargar')||m.includes('csv')||m.includes('pdf')||m.includes('informe'))
+    return `📋 Para descargar un reporte ve al menú lateral y haz clic en "Reportes". Ahí puedes filtrar por período (7 días, 1 mes, 6 meses, etc.) y descargar en CSV (para Excel) o PDF (para imprimir o compartir).`;
+
+  // Logros
+  if(m.includes('logro')||m.includes('reto')||m.includes('medalla')||m.includes('premio'))
+    return `🏆 Ve a la sección "Logros" en el menú lateral. Ahí puedes ver los logros que ya desbloqueaste y los que te faltan. El reto del día aparece en el panel principal.`;
+
+  // Cómo registrar venta
+  if(m.includes('cómo vendo')||m.includes('registrar venta')||m.includes('cómo registro'))
+    return `💰 Para registrar una venta ve a "Ventas" en el menú lateral. Selecciona el producto que vendiste, escribe la cantidad y haz clic en "Confirmar venta". El dinero se sumará automáticamente y el inventario se actualizará.`;
+
+  // Cómo agregar producto
+  if(m.includes('agregar producto')||m.includes('nuevo producto')||m.includes('añadir'))
+    return `📦 Para agregar un producto nuevo ve a "Inventario" en el menú lateral y busca la sección "Agregar nuevo producto". Escribe el nombre, el precio al que lo vendes, lo que te costó, la cantidad que tienes y la unidad de medida.`;
+
+  // Cómo funciona BizWorld
+  if(m.includes('cómo funciona')||m.includes('qué es bizworld')||m.includes('para qué sirve'))
+    return `🏪 BizWorld es una plataforma para simular la gestión de tu negocio sin arriesgar dinero real. Puedes registrar ventas, manejar tu inventario, ver tus ganancias y descargar reportes. Es ideal para aprender cómo funciona un negocio antes de hacerlo en la realidad.`;
+
+  // Cambiar negocio
+  if(m.includes('cambiar negocio')||m.includes('otro negocio')||m.includes('salir'))
+    return `🔄 Para cambiar de negocio haz clic en "Cambiar negocio" en el menú lateral. No te preocupes — tu progreso queda guardado y cuando vuelvas a ese negocio estará exactamente como lo dejaste.`;
+
+  // No entendió
+  return `🤖 No entendí bien tu pregunta. Puedo ayudarte con: ventas, inventario, dinero disponible, ganancias, gastos, reportes, logros o cómo usar la plataforma. ¿Sobre qué quieres saber?`;
 }
 
 // ══════════════════ HELPERS ══════════════════
@@ -1124,20 +1328,28 @@ function renderAll(){
 }
 
 // ══════════════════ INIT ══════════════════
+// ══════════════════ EXPONER FUNCIONES AL SCOPE GLOBAL ══════════════════
+window.showLogin=showLogin; window.showRegister=showRegister;
+window.doLogin=doLogin; window.doRegister=doRegister;
+window.forgotPassword=forgotPassword; window.demoLogin=demoLogin;
+window.doLogout=doLogout; window.showPage=showPage;
+window.startGame=startGame; window.goToLanding=goToLanding;
+window.nextDay=nextDay; window.undoDay=undoDay;
+window.registerSale=registerSale; window.buyStock=buyStock;
+window.addNewProduct=addNewProduct; window.updateExpenses=updateExpenses;
+window.openCustomModal=openCustomModal; window.closeCustomModal=closeCustomModal;
+window.addProductRow=addProductRow; window.saveCustomBusiness=saveCustomBusiness;
+window.toggleChat=toggleChat; window.sendChat=sendChat;
+window.togglePass=togglePass; window.suggestExpenses=suggestExpenses;
+window.setPeriod=setPeriod; window.downloadCSV=downloadCSV; window.downloadPDF=downloadPDF;
+window.nextOnboarding=nextOnboarding; window.skipOnboarding=skipOnboarding;
+
+// Firebase maneja el estado de sesión con onAuthStateChanged
 window.onload=()=>{
-  const saved=getCurrentUser();
-  if(saved){
-    currentUser=saved;
-    const lastType=localStorage.getItem(`bw_${currentUser.email}_last`);
-    if(lastType&&loadBusiness(lastType)){
-      const b=BUSINESSES[lastType]||G._bizDef||{icon:'⚙️',name:'Negocio'};
-      document.getElementById('loginScreen').style.display='none';
-      launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo, ${currentUser.name} 👋`);
-      toast(`👋 Bienvenido de nuevo, ${currentUser.name}`);
-    } else {
-      document.getElementById('loginScreen').style.display='none';
-      showLanding();
-    }
+  const demoActive=sessionStorage.getItem('bw_demo');
+  if(demoActive){
+    currentUser={uid:'demo',name:'Demo',email:'demo@bizworld.com',avatar:'D'};
+    showLanding();
   }
 };
 </script>
