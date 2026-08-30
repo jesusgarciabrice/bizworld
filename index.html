@@ -845,8 +845,6 @@ async function saveG(){
     }catch(e){}
   }
 }
-  }
-}
 
 function loadBusiness(type){
   if(!currentUser) return false;
@@ -934,7 +932,7 @@ const BUSINESSES={
   ]},
 };
 
-let G={};
+let G={}; window.G=G;
 let reportPeriod=7;
 
 
@@ -1477,10 +1475,12 @@ if(document.readyState==='loading'){
 }
 window.toggleUserMenu=toggleUserMenu;
 window.showLogin=showLogin; window.showRegister=showRegister;
+window.showLanding=showLanding; window.showOnboarding=showOnboarding;
 window.doLogin=doLogin; window.doRegister=doRegister;
 window.forgotPassword=forgotPassword; window.demoLogin=demoLogin;
 window.doLogout=doLogout; window.showPage=showPage;
 window.startGame=startGame; window.goToLanding=goToLanding;
+window.launchApp=launchApp;
 window.nextDay=nextDay; window.undoDay=undoDay;
 window.registerSale=registerSale; window.buyStock=buyStock;
 window.addNewProduct=addNewProduct; window.updateExpenses=updateExpenses;
@@ -1490,6 +1490,7 @@ window.toggleChat=toggleChat; window.sendChat=sendChat;
 window.togglePass=togglePass; window.suggestExpenses=suggestExpenses;
 window.setPeriod=setPeriod; window.downloadCSV=downloadCSV; window.downloadPDF=downloadPDF;
 window.nextOnboarding=nextOnboarding; window.skipOnboarding=skipOnboarding;
+window.BUSINESSES=BUSINESSES;
 
 // Mostrar error correcto en login cuando falla
 function showLoginFeedback(msg, isSuccess=false){
