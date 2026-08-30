@@ -80,8 +80,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .topbar{background:var(--dark);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;border-bottom:2px solid var(--teal);box-shadow:0 2px 20px rgba(0,0,0,0.2);}
 .topbar-logo{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:var(--white);}
 .topbar-logo span{color:var(--green);}
-.topbar-right{display:flex;align-items:center;gap:0.8rem;}
-.biz-badge{display:flex;align-items:center;gap:0.5rem;background:rgba(82,214,138,0.15);border:1.5px solid var(--green);border-radius:30px;padding:0.3rem 1rem;font-size:0.85rem;color:var(--green);font-weight:600;}
+.topbar-right{display:flex;align-items:center;gap:0.8rem;min-width:0;overflow:hidden;}
+.biz-badge{display:flex;align-items:center;gap:0.5rem;background:rgba(82,214,138,0.15);border:1.5px solid var(--green);border-radius:30px;padding:0.3rem 1rem;font-size:0.85rem;color:var(--green);font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .day-badge{background:var(--teal);color:var(--white);padding:0.3rem 1rem;border-radius:30px;font-size:0.85rem;font-weight:600;}
 .user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--green));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem;cursor:pointer;border:2px solid rgba(255,255,255,0.2);position:relative;}
 .user-menu{position:absolute;top:calc(100% + 10px);right:0;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid var(--border-card);min-width:180px;overflow:hidden;display:none;z-index:200;}
@@ -774,18 +774,27 @@ function demoLogin(){
 
 function toggleUserMenu(){
   const menu=document.getElementById('userMenu');
-  menu.classList.toggle('open');
-  // Update user info in menu
-  if(currentUser){
-    document.getElementById('menuUserName').textContent=currentUser.name||'Usuario';
-    document.getElementById('menuUserEmail').textContent=currentUser.email||'';
+  if(!menu) return;
+  const isOpen=menu.classList.contains('open');
+  // Cerrar todos los menus primero
+  document.querySelectorAll('.user-menu').forEach(m=>m.classList.remove('open'));
+  if(!isOpen){
+    menu.classList.add('open');
+    if(currentUser){
+      const nameEl=document.getElementById('menuUserName');
+      const emailEl=document.getElementById('menuUserEmail');
+      if(nameEl) nameEl.textContent=currentUser.name||'Usuario';
+      if(emailEl) emailEl.textContent=currentUser.email||'';
+    }
+    setTimeout(()=>{
+      document.addEventListener('click', function closeMenu(e){
+        if(!e.target.closest('#userAvatar')){
+          menu.classList.remove('open');
+          document.removeEventListener('click',closeMenu);
+        }
+      });
+    },100);
   }
-  // Close when clicking outside
-  setTimeout(()=>{
-    document.addEventListener('click', function closeMenu(e){
-      if(!e.target.closest('.user-avatar')){ menu.classList.remove('open'); document.removeEventListener('click',closeMenu); }
-    });
-  },0);
 }
 
 function confirmLogout(){
@@ -1191,14 +1200,14 @@ function renderChecklist(){
   ];
   const allDone=items.every(i=>i.done);
   if(allDone){ document.getElementById('checklistBox').innerHTML=''; return; }
-  document.getElementById('checklistBox').innerHTML=`<div class="checklist-card"><div class="checklist-title">🚀 Primeros pasos</div><div class="checklist-items">${items.map(i=>`<div class="check-item ${i.done?'done':''}">${i.done?'✅':'⬜'} ${i.label}</div>`).join('')}</div></div>`;
+  document.getElementById('checklistBox').innerHTML=`<div class="checklist-card"><div class="checklist-title">Primeros pasos</div><div class="checklist-items">${items.map(i=>`<div class="check-item ${i.done?'done':''}">${i.done?'✅':'⬜'} ${i.label}</div>`).join('')}</div></div>`;
 }
 
 function renderChallenge(){
   const target=5;
   const current=Math.min(G.todaySales.length,target);
   const pct=Math.round((current/target)*100);
-  document.getElementById('challengeBox').innerHTML=`<div class="challenge-card"><div class="challenge-info"><h4>🎯 Reto del día</h4><p>Registra ${target} ventas hoy (${current}/${target})</p></div><div class="challenge-progress"><span style="font-size:0.8rem;opacity:0.8">${pct}%</span><div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div></div></div>`;
+  document.getElementById('challengeBox').innerHTML=`<div class="challenge-card"><div class="challenge-info"><h4>Reto del día</h4><p>Registra ${target} ventas hoy (${current}/${target})</p></div><div class="challenge-progress"><span style="font-size:0.8rem;opacity:0.8">${pct}%</span><div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${pct}%"></div></div></div></div>`;
 }
 
 let salesChartInst,pieChartInst,finChartInst;
