@@ -792,6 +792,8 @@ function confirmLogout(){
   document.getElementById('userMenu').classList.remove('open');
   if(confirm('¿Seguro que quieres cerrar sesión? Tu progreso quedará guardado.')){ doLogout(); }
 }
+
+async function doLogout(){
   if(currentUser?.uid!=='demo') await signOut(auth);
   currentUser=null; G={};
   document.getElementById('app').style.display='none';
