@@ -652,12 +652,71 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 <div id="toast">✅ Operación registrada</div>
 
+<!-- Firebase como módulo separado -->
 <script type="module">
-// Firebase imports al inicio (requerido por ES modules)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-// ══════════════════ GASTOS SUGERIDOS ══════════════════
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAGK2yJX6ucfqt1d2RRLO-fCrEpsS0hxbQ",
+  authDomain: "bizworld-702f1.firebaseapp.com",
+  projectId: "bizworld-702f1",
+  storageBucket: "bizworld-702f1.firebasestorage.app",
+  messagingSenderId: "917084072468",
+  appId: "1:917084072468:web:6424e2c1a2404854b99501"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+// Exponer Firebase al scope global
+window._fbAuth = auth;
+window._fbDb = db;
+window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile, doc, setDoc, getDoc };
+
+// Escuchar cambios de sesión
+onAuthStateChanged(auth, async (user)=>{
+  if(user){
+    window.currentUser = {
+      uid: user.uid,
+      name: user.displayName || user.email.split('@')[0],
+      email: user.email,
+      avatar: (user.displayName || user.email)[0].toUpperCase()
+    };
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('registerScreen').style.display='none';
+    // Cargar último negocio
+    try{
+      const snap = await getDoc(doc(db,'gameData',user.uid+'_last'));
+      if(snap.exists()){
+        const lastType=snap.data().type;
+        if(lastType){
+          const snap2=await getDoc(doc(db,'gameData',user.uid+'_'+lastType));
+          if(snap2.exists()){
+            window.G=snap2.data();
+            const b=window.BUSINESSES[lastType]||window.G._bizDef||{icon:'',name:'tu negocio'};
+            window.launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo, ${window.currentUser.name}`);
+            return;
+          }
+        }
+      }
+    }catch(e){}
+    // Fallback local
+    const lastType=localStorage.getItem('bw_last');
+    if(lastType){
+      const d=localStorage.getItem('bw_'+lastType);
+      if(d){ window.G=JSON.parse(d); const b=window.BUSINESSES[lastType]||{icon:'',name:'tu negocio'}; window.launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo, ${window.currentUser.name}`); return; }
+    }
+    const firstTime=!localStorage.getItem('bw_onboard_'+user.uid);
+    if(firstTime) window.showOnboarding(); else window.showLanding();
+  }
+});
+</script>
+
+<!-- Script principal (NO módulo) -->
+<script>
 function togglePass(id, btn){
   const input=document.getElementById(id);
   const eyeOpen=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -693,31 +752,11 @@ function suggestExpenses(tipo){
   }
 }
 
-// ══════════════════ FIREBASE CONFIG ══════════════════
-
-const firebaseConfig = {
-  apiKey: "AIzaSyAGK2yJX6ucfqt1d2RRLO-fCrEpsS0hxbQ",
-  authDomain: "bizworld-702f1.firebaseapp.com",
-  projectId: "bizworld-702f1",
-  storageBucket: "bizworld-702f1.firebasestorage.app",
-  messagingSenderId: "917084072468",
-  appId: "1:917084072468:web:6424e2c1a2404854b99501"
-};
-
-const fbApp = initializeApp(firebaseConfig);
-const auth = getAuth(fbApp);
-const db = getFirestore(fbApp);
-
-let currentUser = null;
-// Exponer al scope global para acceso desde eventos del DOM
-Object.defineProperty(window, 'currentUser', {
-  get: ()=> currentUser,
-  set: (v)=>{ currentUser=v; }
-});
+// ══════════════════ AUTH (usa Firebase del módulo via window._fbFns) ══════════════════
+let currentUser = window.currentUser || null;
 
 function showLogin(){ document.getElementById('loginScreen').style.display='flex'; document.getElementById('registerScreen').style.display='none'; }
 function showRegister(){ document.getElementById('registerScreen').style.display='flex'; document.getElementById('loginScreen').style.display='none'; }
-
 function showErr(id, msg){ const e=document.getElementById(id); e.textContent=msg; e.style.display='block'; }
 function hideErr(id){ document.getElementById(id).style.display='none'; }
 
@@ -728,14 +767,16 @@ async function doLogin(){
   err.style.display='none';
   if(!email){ err.textContent='Por favor escribe tu correo.'; err.style.display='block'; return; }
   if(!pass){ err.textContent='Por favor escribe tu contraseña.'; err.style.display='block'; return; }
+  const fns=window._fbFns; const auth=window._fbAuth;
+  if(!fns||!auth){ showLanding(); return; }
   try {
-    await signInWithEmailAndPassword(auth, email, pass);
+    await fns.signInWithEmailAndPassword(auth, email, pass);
   } catch(e) {
     err.style.background='#ffebee'; err.style.color='#c62828'; err.style.borderColor='#ef9a9a';
     err.textContent = e.code==='auth/invalid-credential'||e.code==='auth/wrong-password'?
-      'El correo o la contraseña no son correctos. Intenta de nuevo.' :
+      'El correo o la contraseña no son correctos.' :
       e.code==='auth/user-not-found'? 'No encontramos una cuenta con ese correo.' :
-      e.code==='auth/too-many-requests'? 'Demasiados intentos. Espera un momento e intenta de nuevo.' :
+      e.code==='auth/too-many-requests'? 'Demasiados intentos. Espera un momento.' :
       'Ocurrió un error. Intenta de nuevo.';
     err.style.display='block';
   }
@@ -747,109 +788,84 @@ async function doRegister(){
   const pass=document.getElementById('regPass').value;
   hideErr('registerError');
   if(!name||!email||!pass){ showErr('registerError','Completa todos los campos.'); return; }
-  if(pass.length<6){ showErr('registerError','La contraseña debe tener mínimo 6 caracteres.'); return; }
+  if(pass.length<6){ showErr('registerError','Mínimo 6 caracteres en la contraseña.'); return; }
+  const fns=window._fbFns; const auth=window._fbAuth; const db=window._fbDb;
+  if(!fns){ showErr('registerError','Error de conexión. Intenta de nuevo.'); return; }
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    await updateProfile(cred.user, { displayName: name });
-    await setDoc(doc(db,'users',cred.user.uid),{ name, email, createdAt: new Date().toISOString() });
+    const cred = await fns.createUserWithEmailAndPassword(auth, email, pass);
+    await fns.updateProfile(cred.user, { displayName: name });
+    await fns.setDoc(fns.doc(db,'users',cred.user.uid),{ name, email, createdAt: new Date().toISOString() });
   } catch(e) {
-    showErr('registerError', e.code==='auth/email-already-in-use'?'Este correo ya está registrado.':'Error al crear la cuenta. Intenta de nuevo.');
+    showErr('registerError', e.code==='auth/email-already-in-use'?'Este correo ya está registrado.':'Error al crear la cuenta.');
   }
 }
 
 async function forgotPassword(){
   const email=document.getElementById('loginEmail').value.trim();
-  if(!email){ showErr('loginError','Escribe tu correo primero para recuperar tu contraseña.'); return; }
+  const err=document.getElementById('loginError');
+  if(!email){ showErr('loginError','Escribe tu correo primero.'); return; }
+  const fns=window._fbFns; const auth=window._fbAuth;
+  if(!fns){ return; }
   try {
-    await sendPasswordResetEmail(auth, email);
-    showErr('loginError','Te enviamos un correo para recuperar tu contraseña. Revisa tu bandeja de entrada.');
-    document.getElementById('loginError').style.background='#e8f5e9';
-    document.getElementById('loginError').style.color='#2e7d32';
-    document.getElementById('loginError').style.borderColor='#a5d6a7';
+    await fns.sendPasswordResetEmail(auth, email);
+    err.textContent='Te enviamos un correo. Revisa tu bandeja de entrada.';
+    err.style.background='#e8f5e9'; err.style.color='#2e7d32'; err.style.borderColor='#a5d6a7';
+    err.style.display='block';
   } catch(e) {
     showErr('loginError','No encontramos una cuenta con ese correo.');
   }
 }
 
 function demoLogin(){
-  currentUser={uid:'demo',name:'Demo',email:'demo@bizworld.com',avatar:'D'};
+  currentUser=window.currentUser={uid:'demo',name:'Demo',email:'demo@bizworld.com',avatar:'D'};
   sessionStorage.setItem('bw_demo','1');
   showLanding();
 }
 
-function toggleUserMenu(){
-  const menu=document.getElementById('userMenu');
-  if(!menu) return;
-  const isOpen=menu.classList.contains('open');
-  document.querySelectorAll('.user-menu').forEach(m=>m.classList.remove('open'));
-  if(!isOpen){
-    menu.classList.add('open');
-    if(currentUser){
-      const nameEl=document.getElementById('menuUserName');
-      const emailEl=document.getElementById('menuUserEmail');
-      if(nameEl) nameEl.textContent=currentUser.name||'Usuario';
-      if(emailEl) emailEl.textContent=currentUser.email||'';
-    }
-  }
-}
-
 async function doLogout(){
-  if(currentUser?.uid!=='demo') await signOut(auth);
-  currentUser=null; G={};
+  const fns=window._fbFns; const auth=window._fbAuth;
+  if(fns && auth && currentUser?.uid!=='demo') await fns.signOut(auth);
+  currentUser=window.currentUser=null;
+  sessionStorage.removeItem('bw_demo');
+  G={};
   document.getElementById('app').style.display='none';
   document.getElementById('landing').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
 }
 
-// ── Escucha cambios de sesión Firebase
-onAuthStateChanged(auth, async (user)=>{
-  if(user){
-    currentUser={ uid:user.uid, name:user.displayName||user.email.split('@')[0], email:user.email, avatar:(user.displayName||user.email)[0].toUpperCase() };
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('registerScreen').style.display='none';
-    // Cargar último negocio desde Firestore
-    const snap = await getDoc(doc(db,'gameData',user.uid+'_last'));
-    if(snap.exists()){
-      const lastType=snap.data().type;
-      if(lastType && await loadBusiness(lastType)){
-        const b=BUSINESSES[lastType]||G._bizDef||{icon:'',name:'tu negocio'};
-        launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo, ${currentUser.name}`);
-        return;
-      }
-    }
-    const firstTime=!localStorage.getItem('bw_onboard_'+user.uid);
-    if(firstTime) showOnboarding(); else showLanding();
-  }
-});
-
-// ══════════════════ GUARDAR / CARGAR EN FIRESTORE ══════════════════
 async function saveG(){
   if(!G.type||!currentUser) return;
-  const key=currentUser.uid==='demo'?null:currentUser.uid;
-  if(key){
+  localStorage.setItem('bw_'+G.type, JSON.stringify(G));
+  localStorage.setItem('bw_last', G.type);
+  if(currentUser.uid!=='demo' && window._fbFns && window._fbDb){
     try{
-      await setDoc(doc(db,'gameData',key+'_'+G.type), G);
-      await setDoc(doc(db,'gameData',key+'_last'),{type:G.type});
-    }catch(e){ /* falla silenciosa */ }
-  }
-  // También local como respaldo
-  localStorage.setItem(`bw_${currentUser.uid}_${G.type}`, JSON.stringify(G));
-  localStorage.setItem(`bw_${currentUser.uid}_last`, G.type);
-}
-
-async function loadBusiness(type){
-  if(!currentUser) return false;
-  // Intentar desde Firestore primero
-  if(currentUser.uid!=='demo'){
-    try{
-      const snap=await getDoc(doc(db,'gameData',currentUser.uid+'_'+type));
-      if(snap.exists()){ G=snap.data(); return true; }
+      const fns=window._fbFns; const db=window._fbDb;
+      await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_'+G.type), G);
+      await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_last'),{type:G.type});
     }catch(e){}
   }
-  // Fallback a local
-  const d=localStorage.getItem(`bw_${currentUser.uid}_${type}`);
+}
+  }
+}
+
+function loadBusiness(type){
+  if(!currentUser) return false;
+  const d=localStorage.getItem('bw_'+type);
   if(d){ G=JSON.parse(d); return true; }
   return false;
+}
+
+function toggleUserMenu(){
+  const menu=document.getElementById('userMenu');
+  if(!menu) return;
+  const open = menu.style.display==='block';
+  menu.style.display = open ? 'none' : 'block';
+  if(!open && (currentUser||window.currentUser)){
+    const n=document.getElementById('menuUserName');
+    const em=document.getElementById('menuUserEmail');
+    if(n) n.textContent=(currentUser||window.currentUser).name||'Usuario';
+    if(em) em.textContent=(currentUser||window.currentUser).email||'';
+  }
 }
 
 // ══════════════════ ONBOARDING ══════════════════
@@ -1432,11 +1448,11 @@ function initEvents(){
       e.stopPropagation();
       const open=menu.style.display==='block';
       menu.style.display=open?'none':'block';
-      if(!open && currentUser){
+      if(!open && (currentUser||window.currentUser)){
         const n=document.getElementById('menuUserName');
         const em=document.getElementById('menuUserEmail');
-        if(n) n.textContent=currentUser.name||'Usuario';
-        if(em) em.textContent=currentUser.email||'';
+        if(n) n.textContent=(currentUser||window.currentUser).name||'Usuario';
+        if(em) em.textContent=(currentUser||window.currentUser).email||'';
       }
     });
     document.addEventListener('click',()=>{ menu.style.display='none'; });
