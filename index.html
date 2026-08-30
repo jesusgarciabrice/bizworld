@@ -709,6 +709,11 @@ const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
 let currentUser = null;
+// Exponer al scope global para acceso desde eventos del DOM
+Object.defineProperty(window, 'currentUser', {
+  get: ()=> currentUser,
+  set: (v)=>{ currentUser=v; }
+});
 
 function showLogin(){ document.getElementById('loginScreen').style.display='flex'; document.getElementById('registerScreen').style.display='none'; }
 function showRegister(){ document.getElementById('registerScreen').style.display='flex'; document.getElementById('loginScreen').style.display='none'; }
@@ -1435,26 +1440,41 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.getElementById('chatInput')?.addEventListener('keydown', e=>{
     if(e.key==='Enter') sendChat();
   });
-  // Avatar menu
-  document.getElementById('userAvatar')?.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    toggleUserMenu();
-  });
-  // Menu items
-  document.getElementById('menuChangeBiz')?.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    document.getElementById('userMenu')?.classList.remove('open');
-    goToLanding();
-  });
-  document.getElementById('menuLogout')?.addEventListener('click', (e)=>{
-    e.stopPropagation();
-    document.getElementById('userMenu')?.classList.remove('open');
-    if(confirm('¿Seguro que quieres cerrar sesión? Tu progreso quedará guardado.')){ doLogout(); }
-  });
-  // Cerrar menú al hacer clic fuera
-  document.addEventListener('click', ()=>{
-    document.getElementById('userMenu')?.classList.remove('open');
-  });
+  // Avatar menu — usar timeout para asegurar que las funciones estén disponibles
+  setTimeout(()=>{
+    const avatar=document.getElementById('userAvatar');
+    const menu=document.getElementById('userMenu');
+    const changeBiz=document.getElementById('menuChangeBiz');
+    const logout=document.getElementById('menuLogout');
+    if(avatar && menu){
+      avatar.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const isOpen=menu.classList.contains('open');
+        menu.classList.toggle('open');
+        if(!isOpen && window.currentUser){
+          const n=document.getElementById('menuUserName');
+          const em=document.getElementById('menuUserEmail');
+          if(n) n.textContent=window.currentUser.name||'Usuario';
+          if(em) em.textContent=window.currentUser.email||'';
+        }
+      });
+    }
+    changeBiz?.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      menu?.classList.remove('open');
+      window.goToLanding?.();
+    });
+    logout?.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      menu?.classList.remove('open');
+      if(confirm('¿Seguro que quieres cerrar sesión? Tu progreso quedará guardado.')){
+        window.doLogout?.();
+      }
+    });
+    document.addEventListener('click', ()=>{
+      menu?.classList.remove('open');
+    });
+  }, 500);
 });
 window.toggleUserMenu=toggleUserMenu; window.confirmLogout=confirmLogout;
 window.showLogin=showLogin; window.showRegister=showRegister;
