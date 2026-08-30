@@ -360,14 +360,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="topbar-right">
       <div class="biz-badge" id="topBizName">🏪 Tienda</div>
       <div class="day-badge" id="topDay">Día 1</div>
-      <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()" title="Mi cuenta">J
+      <div class="user-avatar" id="userAvatar" title="Mi cuenta">J
         <div class="user-menu" id="userMenu">
           <div class="user-menu-header">
             <div class="user-menu-name" id="menuUserName">Usuario</div>
             <div class="user-menu-email" id="menuUserEmail"></div>
           </div>
-          <div class="user-menu-item" onclick="goToLanding()">🔄 Cambiar negocio</div>
-          <div class="user-menu-item danger" onclick="confirmLogout()">← Cerrar sesión</div>
+          <div class="user-menu-item" id="menuChangeBiz">Cambiar negocio</div>
+          <div class="user-menu-item danger" id="menuLogout">Cerrar sesión</div>
         </div>
       </div>
     </div>
@@ -776,7 +776,6 @@ function toggleUserMenu(){
   const menu=document.getElementById('userMenu');
   if(!menu) return;
   const isOpen=menu.classList.contains('open');
-  // Cerrar todos los menus primero
   document.querySelectorAll('.user-menu').forEach(m=>m.classList.remove('open'));
   if(!isOpen){
     menu.classList.add('open');
@@ -786,20 +785,7 @@ function toggleUserMenu(){
       if(nameEl) nameEl.textContent=currentUser.name||'Usuario';
       if(emailEl) emailEl.textContent=currentUser.email||'';
     }
-    setTimeout(()=>{
-      document.addEventListener('click', function closeMenu(e){
-        if(!e.target.closest('#userAvatar')){
-          menu.classList.remove('open');
-          document.removeEventListener('click',closeMenu);
-        }
-      });
-    },100);
   }
-}
-
-function confirmLogout(){
-  document.getElementById('userMenu').classList.remove('open');
-  if(confirm('¿Seguro que quieres cerrar sesión? Tu progreso quedará guardado.')){ doLogout(); }
 }
 
 async function doLogout(){
@@ -1448,6 +1434,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Enter en chat
   document.getElementById('chatInput')?.addEventListener('keydown', e=>{
     if(e.key==='Enter') sendChat();
+  });
+  // Avatar menu
+  document.getElementById('userAvatar')?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    toggleUserMenu();
+  });
+  // Menu items
+  document.getElementById('menuChangeBiz')?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('userMenu')?.classList.remove('open');
+    goToLanding();
+  });
+  document.getElementById('menuLogout')?.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('userMenu')?.classList.remove('open');
+    if(confirm('¿Seguro que quieres cerrar sesión? Tu progreso quedará guardado.')){ doLogout(); }
+  });
+  // Cerrar menú al hacer clic fuera
+  document.addEventListener('click', ()=>{
+    document.getElementById('userMenu')?.classList.remove('open');
   });
 });
 window.toggleUserMenu=toggleUserMenu; window.confirmLogout=confirmLogout;
