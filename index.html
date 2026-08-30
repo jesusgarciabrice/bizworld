@@ -77,15 +77,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 /* ── APP ── */
 #app{display:none;min-height:100vh;}
-.topbar{background:var(--dark);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;border-bottom:2px solid var(--teal);box-shadow:0 2px 20px rgba(0,0,0,0.2);}
-.topbar-logo{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:var(--white);}
+.topbar{background:var(--dark);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;border-bottom:2px solid var(--teal);box-shadow:0 2px 20px rgba(0,0,0,0.2);gap:1rem;}
+.topbar-logo{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;color:var(--white);flex-shrink:0;}
 .topbar-logo span{color:var(--green);}
-.topbar-right{display:flex;align-items:center;gap:0.8rem;min-width:0;overflow:hidden;}
+.topbar-right{display:flex;align-items:center;gap:0.8rem;flex-shrink:0;}
 .biz-badge{display:flex;align-items:center;gap:0.5rem;background:rgba(82,214,138,0.15);border:1.5px solid var(--green);border-radius:30px;padding:0.3rem 1rem;font-size:0.85rem;color:var(--green);font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .day-badge{background:var(--teal);color:var(--white);padding:0.3rem 1rem;border-radius:30px;font-size:0.85rem;font-weight:600;}
 .user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--green));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem;cursor:pointer;border:2px solid rgba(255,255,255,0.2);position:relative;}
-.user-menu{position:absolute;top:calc(100% + 10px);right:0;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid var(--border-card);min-width:180px;overflow:hidden;display:none;z-index:200;}
-.user-menu.open{display:block;}
+.user-menu{position:absolute;top:calc(100% + 10px);right:0;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid var(--border-card);min-width:200px;overflow:hidden;display:none;z-index:9999;}
 .user-menu-header{padding:0.8rem 1rem;background:var(--bg);border-bottom:1px solid var(--border-card);}
 .user-menu-name{font-weight:600;font-size:0.88rem;color:var(--navy);}
 .user-menu-email{font-size:0.75rem;color:var(--muted);margin-top:0.1rem;}
@@ -654,6 +653,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <div id="toast">✅ Operación registrada</div>
 
 <script type="module">
+// Firebase imports al inicio (requerido por ES modules)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 // ══════════════════ GASTOS SUGERIDOS ══════════════════
 function togglePass(id, btn){
   const input=document.getElementById(id);
@@ -690,10 +693,7 @@ function suggestExpenses(tipo){
   }
 }
 
-// ══════════════════ FIREBASE ══════════════════
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// ══════════════════ FIREBASE CONFIG ══════════════════
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGK2yJX6ucfqt1d2RRLO-fCrEpsS0hxbQ",
@@ -1418,64 +1418,47 @@ function renderAll(){
 }
 
 // ══════════════════ INIT ══════════════════
-// ══════════════════ EVENTOS DEL DOM ══════════════════
-document.addEventListener('DOMContentLoaded', ()=>{
-  // Ojo de contraseña — login
-  document.getElementById('eyeLogin')?.addEventListener('click', function(){
-    togglePass('loginPass', this);
-  });
-  // Ojo de contraseña — registro
-  document.getElementById('eyeReg')?.addEventListener('click', function(){
-    togglePass('regPass', this);
-  });
-  // Enter en login
-  document.getElementById('loginPass')?.addEventListener('keydown', e=>{
-    if(e.key==='Enter') doLogin();
-  });
-  // Enter en registro
-  document.getElementById('regPass')?.addEventListener('keydown', e=>{
-    if(e.key==='Enter') doRegister();
-  });
-  // Enter en chat
-  document.getElementById('chatInput')?.addEventListener('keydown', e=>{
-    if(e.key==='Enter') sendChat();
-  });
-  // Avatar menu — usar timeout para asegurar que las funciones estén disponibles
-  setTimeout(()=>{
-    const avatar=document.getElementById('userAvatar');
-    const menu=document.getElementById('userMenu');
-    const changeBiz=document.getElementById('menuChangeBiz');
-    const logout=document.getElementById('menuLogout');
-    if(avatar && menu){
-      avatar.addEventListener('click', (e)=>{
-        e.stopPropagation();
-        const isOpen=menu.classList.contains('open');
-        menu.classList.toggle('open');
-        if(!isOpen && window.currentUser){
-          const n=document.getElementById('menuUserName');
-          const em=document.getElementById('menuUserEmail');
-          if(n) n.textContent=window.currentUser.name||'Usuario';
-          if(em) em.textContent=window.currentUser.email||'';
-        }
-      });
-    }
-    changeBiz?.addEventListener('click', (e)=>{
+// ══════════════════ INICIALIZAR EVENTOS AL CARGAR ══════════════════
+function initEvents(){
+  // Ojo contraseña
+  document.getElementById('eyeLogin')?.addEventListener('click', function(){ togglePass('loginPass',this); });
+  document.getElementById('eyeReg')?.addEventListener('click', function(){ togglePass('regPass',this); });
+
+  // Avatar menu
+  const avatar=document.getElementById('userAvatar');
+  const menu=document.getElementById('userMenu');
+  if(avatar && menu){
+    avatar.addEventListener('click',(e)=>{
       e.stopPropagation();
-      menu?.classList.remove('open');
-      window.goToLanding?.();
-    });
-    logout?.addEventListener('click', (e)=>{
-      e.stopPropagation();
-      menu?.classList.remove('open');
-      if(confirm('¿Seguro que quieres cerrar sesión? Tu progreso quedará guardado.')){
-        window.doLogout?.();
+      const open=menu.style.display==='block';
+      menu.style.display=open?'none':'block';
+      if(!open && currentUser){
+        const n=document.getElementById('menuUserName');
+        const em=document.getElementById('menuUserEmail');
+        if(n) n.textContent=currentUser.name||'Usuario';
+        if(em) em.textContent=currentUser.email||'';
       }
     });
-    document.addEventListener('click', ()=>{
-      menu?.classList.remove('open');
-    });
-  }, 500);
-});
+    document.addEventListener('click',()=>{ menu.style.display='none'; });
+  }
+  document.getElementById('menuChangeBiz')?.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    document.getElementById('userMenu').style.display='none';
+    goToLanding();
+  });
+  document.getElementById('menuLogout')?.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    document.getElementById('userMenu').style.display='none';
+    if(confirm('¿Seguro que quieres cerrar sesión?\nTu progreso quedará guardado.')) doLogout();
+  });
+}
+
+// Ejecutar cuando el DOM esté listo
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', initEvents);
+} else {
+  initEvents();
+}
 window.toggleUserMenu=toggleUserMenu;
 window.showLogin=showLogin; window.showRegister=showRegister;
 window.doLogin=doLogin; window.doRegister=doRegister;
