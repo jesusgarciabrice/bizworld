@@ -271,9 +271,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="auth-input-group">
       <label>Contraseña</label>
       <div class="pass-wrap">
-        <input type="password" id="loginPass" placeholder="••••••••">
-        <button class="pass-eye" onclick="togglePass('loginPass',this)" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <input type="password" id="loginPass" placeholder="••••••••" onkeydown="if(event.key==='Enter')window.doLogin&&window.doLogin()">
+        <button class="pass-eye" id="eyeLogin" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
     </div>
@@ -304,8 +304,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <label>Contraseña</label>
       <div class="pass-wrap">
         <input type="password" id="regPass" placeholder="Mínimo 6 caracteres">
-        <button class="pass-eye" onclick="togglePass('regPass',this)" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <button class="pass-eye" id="eyeReg" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </div>
     </div>
@@ -1416,7 +1416,29 @@ function renderAll(){
 }
 
 // ══════════════════ INIT ══════════════════
-// ══════════════════ EXPONER FUNCIONES AL SCOPE GLOBAL ══════════════════
+// ══════════════════ EVENTOS DEL DOM ══════════════════
+document.addEventListener('DOMContentLoaded', ()=>{
+  // Ojo de contraseña — login
+  document.getElementById('eyeLogin')?.addEventListener('click', function(){
+    togglePass('loginPass', this);
+  });
+  // Ojo de contraseña — registro
+  document.getElementById('eyeReg')?.addEventListener('click', function(){
+    togglePass('regPass', this);
+  });
+  // Enter en login
+  document.getElementById('loginPass')?.addEventListener('keydown', e=>{
+    if(e.key==='Enter') doLogin();
+  });
+  // Enter en registro
+  document.getElementById('regPass')?.addEventListener('keydown', e=>{
+    if(e.key==='Enter') doRegister();
+  });
+  // Enter en chat
+  document.getElementById('chatInput')?.addEventListener('keydown', e=>{
+    if(e.key==='Enter') sendChat();
+  });
+});
 window.toggleUserMenu=toggleUserMenu; window.confirmLogout=confirmLogout;
 window.showLogin=showLogin; window.showRegister=showRegister;
 window.doLogin=doLogin; window.doRegister=doRegister;
