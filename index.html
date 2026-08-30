@@ -359,7 +359,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="topbar-right">
       <div class="biz-badge" id="topBizName">🏪 Tienda</div>
       <div class="day-badge" id="topDay">Día 1</div>
-      <div class="user-avatar" id="userAvatar" title="Mi cuenta">J
+      <div class="user-avatar" id="userAvatar" title="Mi cuenta">A
         <div class="user-menu" id="userMenu">
           <div class="user-menu-header">
             <div class="user-menu-name" id="menuUserName">Usuario</div>
@@ -971,7 +971,12 @@ function launchApp(badgeName, welcomeTitle){
   document.getElementById('topBizName').textContent=badgeName;
   document.getElementById('welcomeTitle').textContent=welcomeTitle;
   document.getElementById('welcomeSub').textContent=`Aquí puedes ver cómo va tu negocio. Registra lo que vendes, revisa tus productos y toma decisiones para crecer.`;
-  if(currentUser) document.getElementById('userAvatar').textContent=currentUser.avatar||'U';
+  if(currentUser){
+    const av=document.getElementById('userAvatar');
+    // Actualizar solo el texto del avatar sin borrar el menú
+    const initial=(currentUser.name||currentUser.email||'U')[0].toUpperCase();
+    av.childNodes[0].textContent=initial;
+  }
   updateTopDay(); buildSaleForm(); buildBuyForm(); renderAll(); showPage('dashboard');
 }
 
