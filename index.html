@@ -83,7 +83,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .topbar-right{display:flex;align-items:center;gap:0.8rem;}
 .biz-badge{display:flex;align-items:center;gap:0.5rem;background:rgba(82,214,138,0.15);border:1.5px solid var(--green);border-radius:30px;padding:0.3rem 1rem;font-size:0.85rem;color:var(--green);font-weight:600;}
 .day-badge{background:var(--teal);color:var(--white);padding:0.3rem 1rem;border-radius:30px;font-size:0.85rem;font-weight:600;}
-.user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--green));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem;cursor:pointer;border:2px solid rgba(255,255,255,0.2);}
+.user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--green));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:0.9rem;cursor:pointer;border:2px solid rgba(255,255,255,0.2);position:relative;}
+.user-menu{position:absolute;top:calc(100% + 10px);right:0;background:white;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.15);border:1px solid var(--border-card);min-width:180px;overflow:hidden;display:none;z-index:200;}
+.user-menu.open{display:block;}
+.user-menu-header{padding:0.8rem 1rem;background:var(--bg);border-bottom:1px solid var(--border-card);}
+.user-menu-name{font-weight:600;font-size:0.88rem;color:var(--navy);}
+.user-menu-email{font-size:0.75rem;color:var(--muted);margin-top:0.1rem;}
+.user-menu-item{display:flex;align-items:center;gap:0.6rem;padding:0.7rem 1rem;font-size:0.88rem;color:var(--text);cursor:pointer;transition:background 0.15s;}
+.user-menu-item:hover{background:var(--bg);}
+.user-menu-item.danger{color:#e57373;}
+.user-menu-item.danger:hover{background:#ffebee;}
 
 /* ── LAYOUT ── */
 .app-body{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 60px);}
@@ -351,7 +360,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     <div class="topbar-right">
       <div class="biz-badge" id="topBizName">🏪 Tienda</div>
       <div class="day-badge" id="topDay">Día 1</div>
-      <div class="user-avatar" id="userAvatar" onclick="doLogout()" title="Cerrar sesión">J</div>
+      <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()" title="Mi cuenta">J
+        <div class="user-menu" id="userMenu">
+          <div class="user-menu-header">
+            <div class="user-menu-name" id="menuUserName">Usuario</div>
+            <div class="user-menu-email" id="menuUserEmail"></div>
+          </div>
+          <div class="user-menu-item" onclick="goToLanding()">🔄 Cambiar negocio</div>
+          <div class="user-menu-item danger" onclick="confirmLogout()">← Cerrar sesión</div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="app-body">
@@ -754,7 +772,26 @@ function demoLogin(){
   showLanding();
 }
 
-async function doLogout(){
+function toggleUserMenu(){
+  const menu=document.getElementById('userMenu');
+  menu.classList.toggle('open');
+  // Update user info in menu
+  if(currentUser){
+    document.getElementById('menuUserName').textContent=currentUser.name||'Usuario';
+    document.getElementById('menuUserEmail').textContent=currentUser.email||'';
+  }
+  // Close when clicking outside
+  setTimeout(()=>{
+    document.addEventListener('click', function closeMenu(e){
+      if(!e.target.closest('.user-avatar')){ menu.classList.remove('open'); document.removeEventListener('click',closeMenu); }
+    });
+  },0);
+}
+
+function confirmLogout(){
+  document.getElementById('userMenu').classList.remove('open');
+  if(confirm('¿Seguro que quieres cerrar sesión? Tu progreso quedará guardado.')){ doLogout(); }
+}
   if(currentUser?.uid!=='demo') await signOut(auth);
   currentUser=null; G={};
   document.getElementById('app').style.display='none';
@@ -1380,6 +1417,7 @@ function renderAll(){
 
 // ══════════════════ INIT ══════════════════
 // ══════════════════ EXPONER FUNCIONES AL SCOPE GLOBAL ══════════════════
+window.toggleUserMenu=toggleUserMenu; window.confirmLogout=confirmLogout;
 window.showLogin=showLogin; window.showRegister=showRegister;
 window.doLogin=doLogin; window.doRegister=doRegister;
 window.forgotPassword=forgotPassword; window.demoLogin=demoLogin;
