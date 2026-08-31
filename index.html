@@ -685,37 +685,10 @@ onAuthStateChanged(auth, async (user)=>{
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('registerScreen').style.display='none';
 
-    // Buscar último negocio usando clave del usuario
-    const userLastKey=`bw_${user.uid}_last`;
-    const lastType=localStorage.getItem(userLastKey);
-    if(lastType){
-      const d=localStorage.getItem(`bw_${user.uid}_${lastType}`);
-      if(d){
-        const savedG=JSON.parse(d);
-        window.G=savedG; // Establecer ANTES de llamar launchApp
-        const b=window.BUSINESSES?window.BUSINESSES[lastType]:null;
-        const bizDef=savedG._bizDef;
-        const name=b?b.name:(bizDef?bizDef.name:lastType);
-        const icon=b?b.icon:(bizDef?bizDef.icon:'');
-        // Esperar a que launchApp esté disponible
-        const tryLaunch=()=>{
-          if(window.launchApp){
-            window.launchApp(`${icon} ${name}`.trim(), `Bienvenido de nuevo, ${window.currentUser.name}`);
-          } else {
-            setTimeout(tryLaunch, 100);
-          }
-        };
-        tryLaunch();
-        return;
-      }
-    }
-
-    // Si no hay nada guardado, mostrar selección
-    const firstTime=!localStorage.getItem('bw_onboard_'+user.uid);
+    // Siempre mostrar la pantalla de selección al entrar
     const tryShow=()=>{
-      if(window.showOnboarding&&window.showLanding){
-        if(firstTime) window.showOnboarding(); 
-        else window.showLanding();
+      if(window.showLanding){
+        window.showLanding();
       } else { setTimeout(tryShow,100); }
     };
     tryShow();
@@ -922,6 +895,34 @@ function showLanding(){
   renderAllBusinesses();
 }
 
+function getBizIcon(tipo){
+  if(!tipo) return '🏢';
+  const t=tipo.toLowerCase();
+  if(t.includes('peluquer')||t.includes('salon')||t.includes('barber')) return '💈';
+  if(t.includes('restaurante')||t.includes('comida')||t.includes('cocina')) return '🍽️';
+  if(t.includes('cafeter')||t.includes('cafe')||t.includes('café')) return '☕';
+  if(t.includes('tienda')||t.includes('minimarket')||t.includes('abarrote')) return '🏪';
+  if(t.includes('boutique')||t.includes('ropa')||t.includes('moda')) return '👗';
+  if(t.includes('ferreteri')) return '🔧';
+  if(t.includes('farmacia')||t.includes('drogueri')) return '💊';
+  if(t.includes('papeleria')||t.includes('libreria')) return '📚';
+  if(t.includes('panaderia')||t.includes('pasteleria')) return '🥐';
+  if(t.includes('carnicer')||t.includes('carne')) return '🥩';
+  if(t.includes('fruter')||t.includes('verdur')) return '🥦';
+  if(t.includes('pescad')) return '🐟';
+  if(t.includes('tecnolog')||t.includes('celular')||t.includes('computa')||t.includes('samsung')||t.includes('iphone')) return '📱';
+  if(t.includes('joyeria')||t.includes('accesorio')) return '💍';
+  if(t.includes('zapater')||t.includes('calzado')) return '👟';
+  if(t.includes('gym')||t.includes('fitness')||t.includes('deporte')) return '💪';
+  if(t.includes('hotel')||t.includes('hostal')) return '🏨';
+  if(t.includes('transporte')||t.includes('taxi')) return '🚗';
+  if(t.includes('jardin')||t.includes('plantas')||t.includes('flores')) return '🌸';
+  if(t.includes('mascota')||t.includes('veterinar')) return '🐾';
+  if(t.includes('tela')||t.includes('costura')) return '🧵';
+  if(t.includes('construc')||t.includes('materiales')) return '🏗️';
+  return '🏢';
+}
+
 function renderAllBusinesses(){
   const grid=document.getElementById('allBizGrid');
   const title=document.getElementById('bizGridTitle');
@@ -953,8 +954,9 @@ function renderAllBusinesses(){
         const g=JSON.parse(localStorage.getItem(k));
         if(g && g.type && g._bizDef){
           if(!savedBusinesses.find(s=>s.type===g.type)){
+            const icon=getBizIcon(g._bizDef.type||g._bizDef.name||'');
             savedBusinesses.push({
-              type:g.type, name:g._bizDef.name, icon:'🏢',
+              type:g.type, name:g._bizDef.name, icon:icon,
               desc:g._bizDef.type||'Negocio personalizado',
               day:g.day||1, capital:g.capital||0, saved:true, custom:true
             });
@@ -1218,7 +1220,7 @@ function saveCustomBusiness(){
   const customKey='custom_'+Date.now();
   G={type:customKey,day:1,capital,products,expenses,sales:[],history:[],todaySales:[],todayIncome:0,achievements:{},
     createdAt:new Date().toISOString(), capitalInicial:capital,
-    _bizDef:{name,icon:'🏢',capital,expenses,products}};
+    _bizDef:{name,icon:getBizIcon(type||name),type:type,capital,expenses,products}};
   closeCustomModal();
   document.getElementById('landing').style.display='none';
   launchApp(`⚙️ ${name}`,`Bienvenido a tu negocio "${name}" ⚙️`);
