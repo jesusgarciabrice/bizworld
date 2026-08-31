@@ -370,6 +370,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="nav-item" onclick="showPage('finanzas')"><span class="nav-icon"></span> Resultados</div>
       <div class="nav-item" onclick="showPage('reportes')"><span class="nav-icon"></span> Reportes</div>
       <div class="sidebar-section">Extra</div>
+      <div class="nav-item" onclick="showPage('minegocio')"><span class="nav-icon"></span> Mi negocio</div>
       <div class="nav-item" onclick="showPage('logros')"><span class="nav-icon"></span> Logros</div>
       <div class="nav-item" onclick="nextDay()"><span class="nav-icon"></span> Cerrar el día de hoy</div>
       <div class="nav-item" onclick="goToLanding()"><span class="nav-icon"></span> Cambiar negocio</div>
@@ -430,8 +431,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <span id="dayTotal" style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:700;color:var(--teal)">$0</span>
           </div>
         </div>
-        <div class="sec-title">Información del negocio</div>
-        <div class="chart-card" id="bizInfoCard"></div>
       </div>
 
       <!-- INVENTARIO -->
@@ -538,6 +537,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           </div>
           <table class="report-table" id="reportTable"></table>
         </div>
+      </div>
+
+      <!-- MI NEGOCIO -->
+      <div class="page" id="page-minegocio">
+        <div class="sec-title">Mi negocio</div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.5rem">Aquí puedes ver toda la información de tu negocio tal como la configuraste desde el inicio.</p>
+        <div class="chart-card" id="bizInfoCard"></div>
       </div>
 
       <!-- LOGROS -->
@@ -1266,18 +1272,45 @@ function undoSale(index){
 function renderBizInfo(){
   const el=document.getElementById('bizInfoCard');
   if(!el||!G.type) return;
-  const b=BUSINESSES[G.type]||G._bizDef||{};
-  const created=G.createdAt?new Date(G.createdAt).toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'}):'No registrado';
-  const capitalInicial=G.capitalInicial||b.capital||G.capital;
-  const totalVendido=G.sales?G.sales.reduce((a,s)=>a+s.total,0)+G.todayIncome:0;
+  const b=BUSINESSES[G.type]||{};
+  const bizDef=G._bizDef||{};
+  const nombre=bizDef.name||b.name||G.type;
+  const created=G.createdAt
+    ? new Date(G.createdAt).toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
+    : 'No registrado';
+  const capitalInicial=G.capitalInicial||b.capital||0;
+  const gastosDiarios=G.expenses||b.expenses||0;
+  const tipo=bizDef.type||b.name||'Negocio';
+  const productos=G.products?.length||0;
   el.innerHTML=`
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem">
-      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Nombre del negocio</div><div style="font-weight:600;color:var(--navy)">${G._bizDef?.name||BUSINESSES[G.type]?.name||G.type}</div></div>
-      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Fecha de creación</div><div style="font-weight:600;color:var(--navy)">${created}</div></div>
-      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Capital inicial invertido</div><div style="font-weight:600;color:var(--navy)">${fmt(capitalInicial)}</div></div>
-      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Días simulados</div><div style="font-weight:600;color:var(--navy)">${G.day||1} días</div></div>
-      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Total vendido</div><div style="font-weight:600;color:var(--teal)">${fmt(totalVendido)}</div></div>
-      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Capital actual</div><div style="font-weight:600;color:var(--navy)">${fmt(G.capital||0)}</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.5rem">
+      <div style="border-left:3px solid var(--teal);padding-left:1rem">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem">Nombre del negocio</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--navy)">${nombre}</div>
+      </div>
+      <div style="border-left:3px solid var(--teal);padding-left:1rem">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem">Tipo de negocio</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--navy)">${tipo}</div>
+      </div>
+      <div style="border-left:3px solid var(--green);padding-left:1rem">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem">Fecha en que empezaste</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--navy)">${created}</div>
+      </div>
+      <div style="border-left:3px solid var(--green);padding-left:1rem">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem">Capital con el que empezaste</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--navy)">${fmt(capitalInicial)}</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:0.2rem">Este valor no cambia — es tu inversión inicial</div>
+      </div>
+      <div style="border-left:3px solid var(--mint);padding-left:1rem">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem">Gastos fijos diarios</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--navy)">${fmt(gastosDiarios)}</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:0.2rem">Se descuentan cada vez que cierras el día</div>
+      </div>
+      <div style="border-left:3px solid var(--mint);padding-left:1rem">
+        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem">Productos en catálogo</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--navy)">${productos} productos</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:0.2rem">Puedes agregar más desde Inventario</div>
+      </div>
     </div>`;
 }
 
