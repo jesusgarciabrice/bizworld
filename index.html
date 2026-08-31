@@ -677,10 +677,11 @@ onAuthStateChanged(auth, async (user)=>{
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('registerScreen').style.display='none';
 
-    // Buscar último negocio en localStorage primero
-    const lastType=localStorage.getItem('bw_last');
+    // Buscar último negocio usando clave del usuario
+    const userLastKey=`bw_${user.uid}_last`;
+    const lastType=localStorage.getItem(userLastKey);
     if(lastType){
-      const d=localStorage.getItem('bw_'+lastType);
+      const d=localStorage.getItem(`bw_${user.uid}_${lastType}`);
       if(d){
         window.G=JSON.parse(d);
         const b=window.BUSINESSES?window.BUSINESSES[lastType]:null;
@@ -819,24 +820,26 @@ async function doLogout(){
   document.getElementById('loginScreen').style.display='flex';
 }
 
+// ══ CLAVE DE GUARDADO — siempre incluye el uid del usuario ══
+function bizKey(type){ return `bw_${currentUser?.uid||'demo'}_${type}`; }
+function lastKey(){ return `bw_${currentUser?.uid||'demo'}_last`; }
+
 async function saveG(){
   if(!G.type||!currentUser) return;
-  // Siempre guardar en localStorage como respaldo principal
-  localStorage.setItem('bw_'+G.type, JSON.stringify(G));
-  localStorage.setItem('bw_last', G.type);
-  // Intentar guardar en Firestore también
+  localStorage.setItem(bizKey(G.type), JSON.stringify(G));
+  localStorage.setItem(lastKey(), G.type);
   if(currentUser.uid!=='demo' && window._fbFns && window._fbDb){
     try{
       const fns=window._fbFns; const db=window._fbDb;
       await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_'+G.type), JSON.parse(JSON.stringify(G)));
       await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_last'),{type:G.type});
-    }catch(e){ console.log('Firestore save failed, localStorage backup used'); }
+    }catch(e){}
   }
 }
 
 function loadBusiness(type){
   if(!currentUser) return false;
-  const d=localStorage.getItem('bw_'+type);
+  const d=localStorage.getItem(bizKey(type));
   if(d){ G=JSON.parse(d); return true; }
   return false;
 }
@@ -885,7 +888,7 @@ function nextOnboarding(){
 }
 
 function skipOnboarding(){
-  if(currentUser) localStorage.setItem('bw_onboard_'+currentUser.email,'done');
+  if(currentUser) localStorage.setItem('bw_onboard_'+currentUser.uid,'done');
   document.getElementById('onboardingScreen').style.display='none';
   showLanding();
 }
@@ -908,23 +911,24 @@ function renderAllBusinesses(){
     {type:'cafeteria', name:'Cafetería', icon:'☕', desc:'Menú, ingredientes y clientes', saved:false},
   ];
 
-  // Negocios guardados del usuario
+  // Negocios guardados del usuario — usando clave con uid
   const savedBusinesses=[];
+  const uid=currentUser?.uid||'demo';
   baseBusinesses.forEach(b=>{
-    const d=localStorage.getItem('bw_'+b.type);
+    const d=localStorage.getItem(`bw_${uid}_${b.type}`);
     if(d){
       const g=JSON.parse(d);
       savedBusinesses.push({...b, day:g.day||1, capital:g.capital||0, saved:true});
     }
   });
 
-  // Negocios personalizados guardados
+  // Negocios personalizados guardados del usuario
   Object.keys(localStorage).forEach(k=>{
-    if(k.startsWith('bw_') && k!=='bw_last' && !['bw_tienda','bw_boutique','bw_cafeteria'].includes(k)){
+    if(k.startsWith(`bw_${uid}_`) && k!==`bw_${uid}_last` &&
+       !['tienda','boutique','cafeteria'].some(t=>k===`bw_${uid}_${t}`)){
       try{
         const g=JSON.parse(localStorage.getItem(k));
         if(g && g.type && g._bizDef){
-          // Evitar duplicados
           if(!savedBusinesses.find(s=>s.type===g.type)){
             savedBusinesses.push({
               type:g.type, name:g._bizDef.name, icon:'🏢',
@@ -956,13 +960,17 @@ function renderAllBusinesses(){
   // Renderizar negocios guardados primero
   let html='';
   savedBusinesses.forEach(b=>{
-    html+=`<div onclick="continueBusiness('${b.type}')" style="background:rgba(82,214,138,0.15);border:1.5px solid var(--green);border-radius:16px;padding:1rem;cursor:pointer;transition:all 0.25s;width:${cardSize};text-align:center;position:relative" onmouseover="this.style.transform='translateY(-6px)';this.style.background='rgba(82,214,138,0.25)'" onmouseout="this.style.transform='translateY(0)';this.style.background='rgba(82,214,138,0.15)'">
-      <div style="position:absolute;top:8px;right:8px;background:var(--green);color:#0D2B3E;font-size:0.6rem;font-weight:700;padding:1px 6px;border-radius:99px">Guardado</div>
-      <div style="font-size:${total>10?'1.5rem':'2rem'};margin-bottom:0.4rem">${b.icon}</div>
-      <div style="color:white;font-weight:700;font-size:${total>10?'0.82rem':'0.9rem'}">${b.name}</div>
-      <div style="color:rgba(255,255,255,0.55);font-size:0.7rem;margin-top:0.2rem">Día ${b.day}</div>
+    const safeType=b.type.replace(/'/g,'');
+    const safeName=b.name.replace(/'/g,'').replace(/"/g,'');
+    html+=`<div style="background:rgba(82,214,138,0.15);border:1.5px solid var(--green);border-radius:16px;padding:1rem;cursor:pointer;transition:all 0.25s;width:${cardSize};text-align:center;position:relative" onmouseover="this.style.transform='translateY(-6px)'" onmouseout="this.style.transform='translateY(0)'">
+      <div onclick="continueBusiness('${safeType}')">
+        <div style="font-size:${total>10?'1.5rem':'2rem'};margin-bottom:0.4rem">${b.icon}</div>
+        <div style="color:white;font-weight:700;font-size:${total>10?'0.82rem':'0.9rem'}">${safeName}</div>
+        <div style="color:rgba(255,255,255,0.55);font-size:0.7rem;margin-top:0.2rem">Día ${b.day}</div>
+        <div style="color:var(--lime);font-size:0.72rem;margin-top:0.4rem">Continuar →</div>
+      </div>
+      <button onclick="deleteBusiness('${safeType}','${safeName}',event)" style="position:absolute;top:6px;right:6px;background:rgba(229,115,115,0.2);border:none;color:#ef9a9a;border-radius:99px;width:22px;height:22px;cursor:pointer;font-size:0.75rem" title="Eliminar">✕</button>
     </div>`;
-  });
 
   // Negocios base no guardados
   baseBusinesses.filter(b=>!savedBusinesses.find(s=>s.type===b.type)).forEach(b=>{
@@ -977,14 +985,25 @@ function renderAllBusinesses(){
 }
 
 function continueBusiness(type){
-  const d=localStorage.getItem('bw_'+type);
+  const d=localStorage.getItem(bizKey(type));
   if(d){
     G=JSON.parse(d);
-    const b=BUSINESSES[type]||G._bizDef||{icon:'',name:'Negocio'};
+    if(!G.type) G.type=type;
+    const b=BUSINESSES[type]||G._bizDef||{icon:'🏢',name:type};
     document.getElementById('landing').style.display='none';
-    launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo a "${b.name||type}"`);
+    launchApp(`${b.icon||''} ${b.name||type}`.trim(), `Bienvenido de nuevo a "${b.name||type}"`);
   } else {
     startGame(type);
+  }
+}
+
+function deleteBusiness(type, name, e){
+  e.stopPropagation();
+  if(confirm(`¿Eliminar el negocio "${name}"?\n\nSe borrará todo su progreso. Esta acción no se puede deshacer.`)){
+    localStorage.removeItem(bizKey(type));
+    if(localStorage.getItem(lastKey())===type) localStorage.removeItem(lastKey());
+    renderAllBusinesses();
+    toast(`Negocio "${name}" eliminado.`);
   }
 }
 
@@ -1562,7 +1581,7 @@ if(document.readyState==='loading'){
 } else {
   initEvents();
 }
-window.continueBusiness=continueBusiness;
+window.continueBusiness=continueBusiness; window.deleteBusiness=deleteBusiness;
 window.toggleUserMenu=toggleUserMenu;
 window.showLogin=showLogin; window.showRegister=showRegister;
 window.showLanding=showLanding; window.showOnboarding=showOnboarding;
