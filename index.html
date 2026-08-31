@@ -693,30 +693,25 @@ onAuthStateChanged(auth, async (user)=>{
     };
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('registerScreen').style.display='none';
-    // Cargar último negocio
-    try{
-      const snap = await getDoc(doc(db,'gameData',user.uid+'_last'));
-      if(snap.exists()){
-        const lastType=snap.data().type;
-        if(lastType){
-          const snap2=await getDoc(doc(db,'gameData',user.uid+'_'+lastType));
-          if(snap2.exists()){
-            window.G=snap2.data();
-            const b=window.BUSINESSES[lastType]||window.G._bizDef||{icon:'',name:'tu negocio'};
-            window.launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo, ${window.currentUser.name}`);
-            return;
-          }
-        }
-      }
-    }catch(e){}
-    // Fallback local
+
+    // Buscar último negocio en localStorage primero
     const lastType=localStorage.getItem('bw_last');
     if(lastType){
       const d=localStorage.getItem('bw_'+lastType);
-      if(d){ window.G=JSON.parse(d); const b=window.BUSINESSES[lastType]||{icon:'',name:'tu negocio'}; window.launchApp(`${b.icon} ${b.name}`,`Bienvenido de nuevo, ${window.currentUser.name}`); return; }
+      if(d){
+        window.G=JSON.parse(d);
+        const b=window.BUSINESSES?window.BUSINESSES[lastType]:null;
+        const bizDef=window.G._bizDef;
+        const name=b?b.name:(bizDef?bizDef.name:lastType);
+        const icon=b?b.icon:(bizDef?bizDef.icon:'');
+        window.launchApp(`${icon} ${name}`.trim(), `Bienvenido de nuevo, ${window.currentUser.name}`);
+        return;
+      }
     }
+
+    // Si no hay nada guardado, mostrar selección
     const firstTime=!localStorage.getItem('bw_onboard_'+user.uid);
-    if(firstTime) window.showOnboarding(); else window.showLanding();
+    if(firstTime) window.showOnboarding?.(); else window.showLanding?.();
   }
 });
 </script>
@@ -841,14 +836,16 @@ async function doLogout(){
 
 async function saveG(){
   if(!G.type||!currentUser) return;
+  // Siempre guardar en localStorage como respaldo principal
   localStorage.setItem('bw_'+G.type, JSON.stringify(G));
   localStorage.setItem('bw_last', G.type);
+  // Intentar guardar en Firestore también
   if(currentUser.uid!=='demo' && window._fbFns && window._fbDb){
     try{
       const fns=window._fbFns; const db=window._fbDb;
-      await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_'+G.type), G);
+      await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_'+G.type), JSON.parse(JSON.stringify(G)));
       await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_last'),{type:G.type});
-    }catch(e){}
+    }catch(e){ console.log('Firestore save failed, localStorage backup used'); }
   }
 }
 
