@@ -1877,74 +1877,151 @@ function sendChat(){
 }
 
 function getBotResponse(msg){
-  const m=msg.toLowerCase();
+  const m=msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
   const ts=G.sales?G.sales.reduce((a,s)=>a+s.total,0):0;
   const te=G.history?G.history.reduce((a,h)=>a+h.expense,0):0;
   const profit=ts-te;
   const negocio=G._bizDef?.name||G.type||'tu negocio';
+  const capital=G.capital||0;
+  const hoy=G.todayIncome||0;
+  const bajo=G.products?.filter(p=>p.stock<5)||[];
 
-  // Saludo
-  if(m.includes('hola')||m.includes('buenas')||m.includes('hey'))
-    return `¡Hola! 👋 Soy el asistente de BizWorld. Puedo ayudarte con todo lo relacionado a tu negocio "${negocio}". Pregúntame sobre tus ventas, inventario, dinero disponible, ganancias, reportes, logros o cómo usar la plataforma.`;
+  // Saludos
+  if(/^(hola|hola!|buenas|buenos dias|buenas tardes|hey|ey|hi|saludos)/.test(m))
+    return `¡Hola! Soy el asistente de BizWorld. Estoy aquí para ayudarte con todo lo de tu negocio "${negocio}". Puedes preguntarme cosas como:
 
-  // Ayuda general
-  if(m.includes('ayuda')||m.includes('qué puedes')||m.includes('para qué'))
-    return `Puedo ayudarte con:\n💰 Tus ventas del día y totales\n📦 El estado de tu inventario\n💵 El dinero que tienes disponible\n📈 Si estás ganando o perdiendo\n📋 Cómo descargar reportes\n🏆 Tus logros desbloqueados\n⚙️ Cómo usar cada parte de la plataforma\n\n¿Sobre qué quieres saber?`;
+— ¿Cuánto llevo vendido?
+— ¿Cómo registro una venta?
+— ¿Cómo creo un negocio?
+— ¿Cuánto dinero tengo?
+— ¿Cómo descargo un reporte?
 
-  // Ventas
-  if(m.includes('venta')||m.includes('vendido')||m.includes('ingreso'))
-    return `💰 En tu negocio "${negocio}" llevas ${fmt(ts)} en ventas totales con ${G.sales?.length||0} ventas registradas. Hoy llevas ${fmt(G.todayIncome||0)}. ${ts>te?'¡Vas muy bien!':'Intenta registrar más ventas para cubrir tus gastos.'}`;
+¿En qué te puedo ayudar?`;
 
-  // Inventario
-  if(m.includes('inventario')||m.includes('producto')||m.includes('stock')||m.includes('cantidad')){
-    const bajo=G.products?.filter(p=>p.stock<5)||[];
+  // Crear negocio / empresa
+  if(m.includes('crear')&&(m.includes('negocio')||m.includes('empresa')||m.includes('tienda')||m.includes('local')))
+    return `Para crear tu propio negocio sigue estos pasos:
+
+1. Haz clic en "Cambiar negocio" en el menú de la izquierda.
+2. En la pantalla principal verás opciones ya listas: Tienda, Boutique y Cafetería.
+3. Si quieres uno personalizado, haz clic en "+ Crear nuevo negocio".
+4. Escribe el nombre de tu negocio, qué tipo es (peluquería, restaurante, etc.), el dinero con el que empiezas y tus productos o servicios.
+5. Haz clic en "Crear negocio" y listo.
+
+Tu negocio quedará guardado y podrás simularlo cuando quieras.`;
+
+  // Cómo registrar una venta
+  if((m.includes('como')||m.includes('donde')||m.includes('donde'))&&(m.includes('vend')||m.includes('registro')||m.includes('venta')))
+    return `Para registrar una venta es muy sencillo:
+
+1. En el menú de la izquierda haz clic en "Ventas".
+2. Selecciona el producto que vendiste.
+3. Escribe la cantidad que vendiste.
+4. Haz clic en "Confirmar venta".
+
+El dinero se suma automáticamente a tu capital y el inventario se descuenta solo. Además puedes deshacer una venta si te equivocas, con el botón ↩ que aparece al lado de cada venta.`;
+
+  // Ver ventas del día / cuánto vendí hoy
+  if((m.includes('hoy')||m.includes('dia')||m.includes('vendi'))&&(m.includes('cuanto')||m.includes('vend')||m.includes('vendido')))
+    return `Hoy llevas ${fmt(hoy)} en ventas. Puedes ver el detalle de todo lo que vendiste hoy en la sección "Ventas" — ahí aparece cada producto vendido con la cantidad y el valor.`;
+
+  // Cuánto llevo vendido en total
+  if(m.includes('total')&&m.includes('vend')||m.includes('cuanto llevo'))
+    return `En total llevas ${fmt(ts)} en ventas con ${G.sales?.length||0} transacciones registradas. Hoy llevas ${fmt(hoy)}. ${profit>0?`Tu ganancia actual es de ${fmt(profit)} — ¡vas muy bien!`:`Aún estás cubriendo los gastos iniciales.`}`;
+
+  // Ventas en general
+  if(m.includes('venta')||m.includes('vendi')||m.includes('ingreso'))
+    return `Llevas ${fmt(ts)} en ventas totales con ${G.sales?.length||0} ventas. Hoy llevas ${fmt(hoy)}. Para registrar una venta nueva ve a "Ventas" en el menú de la izquierda.`;
+
+  // Inventario / productos / stock
+  if(m.includes('inventario')||m.includes('stock')||m.includes('producto')||m.includes('cuantos')||m.includes('mercancia'))
     return bajo.length
-      ?`⚠️ Tienes ${bajo.length} producto(s) con poca cantidad: ${bajo.map(p=>p.name).join(', ')}. Ve a Inventario → Reponer para comprar más.`
-      :`✅ Tu inventario está bien. Tienes ${G.products?.reduce((a,p)=>a+p.stock,0)||0} unidades en total disponibles para vender.`;
-  }
+      ?`Tienes ${bajo.length} producto(s) con poco stock: ${bajo.map(p=>p.name).join(', ')}. Te recomiendo reponerlos pronto. Ve a "Inventario" → "Reponer productos" para comprar más.`
+      :`Tu inventario está en buen estado. Tienes ${G.products?.reduce((a,p)=>a+p.stock,0)||0} unidades disponibles en total. Si quieres agregar un producto nuevo, ve a "Inventario" → "Agregar nuevo producto".`;
 
-  // Dinero / capital
-  if(m.includes('dinero')||m.includes('capital')||m.includes('plata')||m.includes('cuánto tengo'))
-    return `💵 Ahora mismo tienes ${fmt(G.capital||0)} disponibles en tu negocio. ${(G.capital||0)<50000?'⚠️ Está un poco bajo — trata de no gastar más de lo necesario.':'¡Tienes buen capital para seguir operando!'}`;
+  // Agregar producto
+  if((m.includes('agregar')||m.includes('añadir')||m.includes('nuevo'))&&m.includes('producto'))
+    return `Para agregar un producto nuevo:
 
-  // Ganancias
-  if(m.includes('ganancia')||m.includes('perdiendo')||m.includes('ganando')||m.includes('resultado'))
-    return `📈 ${profit>0?`¡Estás ganando! Tu ganancia es de ${fmt(profit)}. Llevas ${fmt(ts)} vendido y ${fmt(te)} en gastos.`:`Aún estás en pérdida de ${fmt(Math.abs(profit))}. Llevas ${fmt(ts)} vendido pero ${fmt(te)} en gastos. Intenta vender más o reducir gastos.`}`;
+1. Ve a "Inventario" en el menú de la izquierda.
+2. Busca la sección "Agregar nuevo producto".
+3. Escribe el nombre, el precio al que lo vendes, lo que te costó, la cantidad que tienes y la unidad (unidad, kg, metro, etc.).
+4. Haz clic en "Agregar producto".
 
-  // Gastos
-  if(m.includes('gasto')||m.includes('fijo')||m.includes('cuánto gasto'))
-    return `⚙️ Tus gastos fijos son de ${fmt(G.expenses||0)} por día. Llevas ${fmt(te)} en gastos acumulados. ${!G.expenses?'💡 Tip: Aún no has configurado tus gastos fijos. Ve a Inventario → Configurar gastos fijos.':''}`;
+Aparece de inmediato en tu inventario y en la lista de productos para vender.`;
 
-  // Días
-  if(m.includes('dia')||m.includes('día')||m.includes('llevas'))
-    return `📅 Llevas ${G.day||1} días simulando tu negocio "${negocio}". Cada vez que haces clic en "Cerrar el día de hoy" avanzas un día y se descuentan tus gastos fijos.`;
+  // Dinero / capital / plata
+  if(m.includes('dinero')||m.includes('capital')||m.includes('plata')||m.includes('cuanto tengo')||m.includes('saldo'))
+    return `Ahora mismo tienes ${fmt(capital)} disponibles en tu negocio "${negocio}". ${capital<50000?'Está un poco bajo — trata de vender más y controlar los gastos.':'Tienes buen capital para seguir operando.'} Este valor cambia cada vez que registras una venta o compras inventario.`;
 
-  // Reportes
-  if(m.includes('reporte')||m.includes('descargar')||m.includes('csv')||m.includes('pdf')||m.includes('informe'))
-    return `📋 Para descargar un reporte ve al menú lateral y haz clic en "Reportes". Ahí puedes filtrar por período (7 días, 1 mes, 6 meses, etc.) y descargar en CSV (para Excel) o PDF (para imprimir o compartir).`;
+  // Ganancias / pérdidas
+  if(m.includes('ganancia')||m.includes('perdida')||m.includes('perdiendo')||m.includes('ganando')||m.includes('utilidad')||m.includes('resultado'))
+    return profit>0
+      ?`Tu negocio está ganando. La ganancia actual es de ${fmt(profit)} — llevas ${fmt(ts)} en ventas y ${fmt(te)} en gastos. ¡Sigue así!`
+      :`Actualmente llevas ${fmt(Math.abs(profit))} de pérdida. Has vendido ${fmt(ts)} pero tus gastos acumulados son ${fmt(te)}. Intenta vender más o reducir los gastos fijos.`;
 
-  // Logros
-  if(m.includes('logro')||m.includes('reto')||m.includes('medalla')||m.includes('premio'))
-    return `🏆 Ve a la sección "Logros" en el menú lateral. Ahí puedes ver los logros que ya desbloqueaste y los que te faltan. El reto del día aparece en el panel principal.`;
+  // Gastos fijos
+  if(m.includes('gasto')||m.includes('fijo')||m.includes('costo'))
+    return `Tus gastos fijos son de ${fmt(G.expenses||0)} por día. Llevas ${fmt(te)} en gastos acumulados. Estos se descuentan automáticamente cada vez que cierras el día. Si quieres cambiarlos, ve a "Inventario" → "Configurar gastos fijos diarios".`;
 
-  // Cómo registrar venta
-  if(m.includes('cómo vendo')||m.includes('registrar venta')||m.includes('cómo registro'))
-    return `💰 Para registrar una venta ve a "Ventas" en el menú lateral. Selecciona el producto que vendiste, escribe la cantidad y haz clic en "Confirmar venta". El dinero se sumará automáticamente y el inventario se actualizará.`;
+  // Cerrar el día / avanzar día
+  if(m.includes('cerrar el dia')||m.includes('avanzar')||m.includes('siguiente dia')||m.includes('pasar dia'))
+    return `Para cerrar el día de hoy haz clic en el botón "Cerrar el día de hoy" en el panel principal o en el menú lateral. Esto descuenta tus gastos fijos (${fmt(G.expenses||0)}) y empieza un día nuevo. Si te equivocas, puedes deshacer el último día con el botón "↩ Deshacer último día".`;
 
-  // Cómo agregar producto
-  if(m.includes('agregar producto')||m.includes('nuevo producto')||m.includes('añadir'))
-    return `📦 Para agregar un producto nuevo ve a "Inventario" en el menú lateral y busca la sección "Agregar nuevo producto". Escribe el nombre, el precio al que lo vendes, lo que te costó, la cantidad que tienes y la unidad de medida.`;
+  // Deshacer
+  if(m.includes('deshacer')||m.includes('equivoque')||m.includes('error')||m.includes('borrar venta'))
+    return `Puedes deshacer de dos formas:
 
-  // Cómo funciona BizWorld
-  if(m.includes('cómo funciona')||m.includes('qué es bizworld')||m.includes('para qué sirve'))
-    return `🏪 BizWorld es una plataforma para simular la gestión de tu negocio sin arriesgar dinero real. Puedes registrar ventas, manejar tu inventario, ver tus ganancias y descargar reportes. Es ideal para aprender cómo funciona un negocio antes de hacerlo en la realidad.`;
+— Si quieres deshacer una venta: ve a "Ventas" y haz clic en el botón ↩ que aparece al lado de cada venta registrada hoy.
+— Si quieres deshacer el cierre de un día: en el panel principal aparece el botón "↩ Deshacer último día" después de cerrar.`;
+
+  // Reportes / descargar
+  if(m.includes('reporte')||m.includes('descargar')||m.includes('csv')||m.includes('pdf')||m.includes('informe')||m.includes('excel'))
+    return `Para descargar un reporte:
+
+1. Ve a "Reportes" en el menú de la izquierda.
+2. Selecciona el período que quieres ver (7 días, 1 mes, etc.).
+3. Haz clic en "CSV" para abrirlo en Excel, o en "PDF" para un reporte completo listo para imprimir.
+
+El PDF incluye resumen financiero, ventas por producto, detalle día a día y tu información del negocio.`;
+
+  // Proyecciones
+  if(m.includes('proyecto')||m.includes('proyeccion')||m.includes('futuro')||m.includes('cuanto ganaria')||m.includes('si vendo'))
+    return `En la sección "Reportes" hay una parte de "Proyección de ganancias". Ahí puedes escribir cuántos días quieres proyectar (15, 30, 90 días, lo que quieras) y el sistema calcula cuánto ganarías si sigues vendiendo igual. También puedes guardar distintos escenarios para compararlos.`;
+
+  // Mi negocio / información
+  if(m.includes('mi negocio')||m.includes('informacion')||m.includes('capital inicial')||m.includes('cuando empece')||m.includes('cuando cree'))
+    return `Para ver la información de tu negocio ve a "Mi negocio" en el menú lateral. Ahí puedes ver: nombre del negocio, fecha en que lo creaste, capital con el que empezaste, gastos fijos diarios y cuántos productos tienes.`;
+
+  // Logros / retos
+  if(m.includes('logro')||m.includes('reto')||m.includes('premio')||m.includes('medalla'))
+    return `Los logros están en la sección "Logros" del menú lateral. Puedes desbloquearlos haciendo cosas como registrar tu primera venta, llegar al día 10, alcanzar $1.000.000 en ventas, entre otros. El reto del día aparece en el panel principal con una barra de progreso.`;
 
   // Cambiar negocio
-  if(m.includes('cambiar negocio')||m.includes('otro negocio')||m.includes('salir'))
-    return `🔄 Para cambiar de negocio haz clic en "Cambiar negocio" en el menú lateral. No te preocupes — tu progreso queda guardado y cuando vuelvas a ese negocio estará exactamente como lo dejaste.`;
+  if(m.includes('cambiar')||(m.includes('otro')&&m.includes('negocio')))
+    return `Para cambiar de negocio haz clic en "Cambiar negocio" en el menú lateral. Tu progreso se guarda automáticamente. Cuando vuelvas a ese negocio, va a estar exactamente donde lo dejaste.`;
 
-  // No entendió
-  return `🤖 No entendí bien tu pregunta. Puedo ayudarte con: ventas, inventario, dinero disponible, ganancias, gastos, reportes, logros o cómo usar la plataforma. ¿Sobre qué quieres saber?`;
+  // Qué es BizWorld / cómo funciona
+  if(m.includes('bizworld')||m.includes('como funciona')||m.includes('que es esto')||m.includes('para que sirve'))
+    return `BizWorld es un simulador de negocios. Te permite practicar cómo manejar un negocio sin arriesgar dinero real. Puedes registrar ventas, manejar inventario, ver tus ganancias, hacer proyecciones y descargar reportes. Es ideal para aprender antes de abrir un negocio de verdad.`;
+
+  // Cerrar sesión
+  if(m.includes('cerrar sesion')||m.includes('salir')||m.includes('logout'))
+    return `Para cerrar sesión haz clic en tu inicial (la letra de tu nombre) en la esquina superior derecha, y selecciona "Cerrar sesión". Tu progreso queda guardado y puedes volver cuando quieras.`;
+
+  // No entendió — respuesta inteligente
+  return `No estoy seguro de entender bien tu pregunta. Puedo ayudarte con estas cosas:
+
+— Cómo crear o cambiar de negocio
+— Cómo registrar una venta
+— Cómo ver cuánto has vendido
+— El estado de tu inventario
+— Cuánto dinero tienes disponible
+— Si estás ganando o perdiendo
+— Cómo descargar un reporte
+— Proyecciones de ganancias
+
+¿Sobre cuál de estas quieres saber más?`;
 }
 
 // ══════════════════ HELPERS ══════════════════
