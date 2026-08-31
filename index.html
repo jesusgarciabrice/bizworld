@@ -430,6 +430,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <span id="dayTotal" style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:700;color:var(--teal)">$0</span>
           </div>
         </div>
+        <div class="sec-title">Información del negocio</div>
+        <div class="chart-card" id="bizInfoCard"></div>
       </div>
 
       <!-- INVENTARIO -->
@@ -1075,7 +1077,8 @@ function startGame(type){
   document.getElementById('landing').style.display='none';
   const b=BUSINESSES[type];
   if(!loadBusiness(type)){
-    G={type,day:1,capital:b.capital,products:b.products.map(p=>({...p})),expenses:b.expenses,sales:[],history:[],todaySales:[],todayIncome:0,achievements:{}};
+    G={type,day:1,capital:b.capital,products:b.products.map(p=>({...p})),expenses:b.expenses,sales:[],history:[],todaySales:[],todayIncome:0,achievements:{},
+      createdAt:new Date().toISOString(), capitalInicial:b.capital};
     preloadDemo(type);
   }
   launchApp(b.icon+' '+b.name, `Bienvenido a tu negocio "${b.name}" ${b.icon}`);
@@ -1208,7 +1211,8 @@ function saveCustomBusiness(){
   if(products.length===0){ toast('⚠️ Agrega al menos un producto'); return; }
   const customKey='custom_'+Date.now();
   G={type:customKey,day:1,capital,products,expenses,sales:[],history:[],todaySales:[],todayIncome:0,achievements:{},
-    _bizDef:{name,icon:'⚙️',capital,expenses,products}};
+    createdAt:new Date().toISOString(), capitalInicial:capital,
+    _bizDef:{name,icon:'🏢',capital,expenses,products}};
   closeCustomModal();
   document.getElementById('landing').style.display='none';
   launchApp(`⚙️ ${name}`,`Bienvenido a tu negocio "${name}" ⚙️`);
@@ -1240,6 +1244,41 @@ function undoDay(){
   updateTopDay(); saveG(); renderAll();
   document.getElementById('undoDayBtn').style.display='none';
   toast('Día deshecho correctamente. Volviste al día '+G.day+'.');
+}
+
+function undoSale(index){
+  if(!G.todaySales||index<0||index>=G.todaySales.length) return;
+  const sale=G.todaySales[index];
+  if(!confirm(`¿Deshacer la venta de "${sale.name}" (${fmt(sale.total)})?`)) return;
+  // Devolver stock al producto
+  const prod=G.products.find(p=>p.name===sale.name);
+  if(prod) prod.stock+=sale.qty;
+  // Descontar del total
+  G.todayIncome-=sale.total;
+  G.capital-=sale.total;
+  // Quitar de todaySales y sales
+  G.todaySales.splice(index,1);
+  G.sales=G.sales.filter((s,i)=>!(s.day===G.day&&s.product===sale.name&&s.total===sale.total&&i===G.sales.length-1-G.todaySales.length+index));
+  saveG(); renderSaleLog(); renderInventory(); renderStats();
+  toast(`Venta de "${sale.name}" deshecha. Stock restaurado.`);
+}
+
+function renderBizInfo(){
+  const el=document.getElementById('bizInfoCard');
+  if(!el||!G.type) return;
+  const b=BUSINESSES[G.type]||G._bizDef||{};
+  const created=G.createdAt?new Date(G.createdAt).toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'}):'No registrado';
+  const capitalInicial=G.capitalInicial||b.capital||G.capital;
+  const totalVendido=G.sales?G.sales.reduce((a,s)=>a+s.total,0)+G.todayIncome:0;
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem">
+      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Nombre del negocio</div><div style="font-weight:600;color:var(--navy)">${G._bizDef?.name||BUSINESSES[G.type]?.name||G.type}</div></div>
+      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Fecha de creación</div><div style="font-weight:600;color:var(--navy)">${created}</div></div>
+      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Capital inicial invertido</div><div style="font-weight:600;color:var(--navy)">${fmt(capitalInicial)}</div></div>
+      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Días simulados</div><div style="font-weight:600;color:var(--navy)">${G.day||1} días</div></div>
+      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Total vendido</div><div style="font-weight:600;color:var(--teal)">${fmt(totalVendido)}</div></div>
+      <div><div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.3rem">Capital actual</div><div style="font-weight:600;color:var(--navy)">${fmt(G.capital||0)}</div></div>
+    </div>`;
 }
 
 function updateTopDay(){ document.getElementById('topDay').textContent=`Día ${G.day}`; }
@@ -1289,10 +1328,16 @@ function buyStock(){
 // ══════════════════ RENDER ══════════════════
 function renderSaleLog(){
   const log=document.getElementById('saleLog');
-  log.innerHTML=G.todaySales.length?[...G.todaySales].reverse().map(s=>`<div class="sale-item"><span class="s-name">${s.name}</span><span class="s-qty">×${s.qty} ${s.unit||'u'}</span><span class="s-total">+${fmt(s.total)}</span></div>`).join(''):'<p style="color:var(--muted);font-size:0.9rem">Aún no hay ventas hoy.</p>';
-  document.getElementById('dayTotal').textContent=fmt(G.todayIncome);
+  if(G.todaySales&&G.todaySales.length){
+    log.innerHTML=[...G.todaySales].reverse().map((s,i)=>{
+      const realIdx=G.todaySales.length-1-i;
+      return `<div class="sale-item"><span class="s-name">${s.name}</span><span class="s-qty">×${s.qty} ${s.unit||'u'}</span><span class="s-total">+${fmt(s.total)}</span><button onclick="undoSale(${realIdx})" style="background:none;border:1px solid #e57373;color:#e57373;border-radius:6px;padding:2px 8px;font-size:0.72rem;cursor:pointer;margin-left:0.5rem" title="Deshacer">↩</button></div>`;
+    }).join('');
+  } else {
+    log.innerHTML='<p style="color:var(--muted);font-size:0.9rem">Aún no hay ventas hoy.</p>';
+  }
+  document.getElementById('dayTotal').textContent=fmt(G.todayIncome||0);
 }
-
 function renderInventory(){
   document.getElementById('invTable').innerHTML=`<thead><tr><th>Producto</th><th>Cantidad disponible</th><th>Unidad</th><th>Precio</th><th>Costo</th><th>Ganancia por venta</th><th>Estado</th></tr></thead><tbody>${G.products.map(p=>{
     const m=Math.round(((p.price-p.cost)/p.price)*100);
@@ -1560,7 +1605,7 @@ function renderAll(){
   renderStats(); renderAlerts(); renderCharts();
   renderSaleLog(); renderInventory(); renderFinStats();
   renderChecklist(); renderChallenge(); renderLogros();
-  renderReportes(); renderExpensesConfig();
+  renderReportes(); renderExpensesConfig(); renderBizInfo();
 }
 
 // ══════════════════ INIT ══════════════════
@@ -1605,7 +1650,7 @@ if(document.readyState==='loading'){
 } else {
   initEvents();
 }
-window.continueBusiness=continueBusiness; window.deleteBusiness=deleteBusiness;
+window.undoSale=undoSale; window.continueBusiness=continueBusiness; window.deleteBusiness=deleteBusiness;
 window.toggleUserMenu=toggleUserMenu;
 window.showLogin=showLogin; window.showRegister=showRegister;
 window.showLanding=showLanding; window.showOnboarding=showOnboarding;
