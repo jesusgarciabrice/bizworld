@@ -363,15 +363,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   <div class="app-body">
     <div class="sidebar">
       <div class="sidebar-section">Principal</div>
-      <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon"></span> Panel principal</div>
-      <div class="nav-item" onclick="showPage('ventas')"><span class="nav-icon"></span> Ventas</div>
-      <div class="nav-item" onclick="showPage('inventario')"><span class="nav-icon"></span> Inventario</div>
+      <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')"><span class="nav-icon"></span> Panel principal</div>
+      <div class="nav-item" data-page="ventas" onclick="showPage('ventas')"><span class="nav-icon"></span> Ventas</div>
+      <div class="nav-item" data-page="inventario" onclick="showPage('inventario')"><span class="nav-icon"></span> Inventario</div>
       <div class="sidebar-section">Análisis</div>
-      <div class="nav-item" onclick="showPage('finanzas')"><span class="nav-icon"></span> Resultados</div>
-      <div class="nav-item" onclick="showPage('reportes')"><span class="nav-icon"></span> Reportes</div>
+      <div class="nav-item" data-page="finanzas" onclick="showPage('finanzas')"><span class="nav-icon"></span> Resultados</div>
+      <div class="nav-item" data-page="reportes" onclick="showPage('reportes')"><span class="nav-icon"></span> Reportes</div>
       <div class="sidebar-section">Extra</div>
-      <div class="nav-item" onclick="showPage('minegocio')"><span class="nav-icon"></span> Mi negocio</div>
-      <div class="nav-item" onclick="showPage('logros')"><span class="nav-icon"></span> Logros</div>
+      <div class="nav-item" data-page="minegocio" onclick="showPage('minegocio')"><span class="nav-icon"></span> Mi negocio</div>
+      <div class="nav-item" data-page="logros" onclick="showPage('logros')"><span class="nav-icon"></span> Logros</div>
       <div class="nav-item" onclick="nextDay()"><span class="nav-icon"></span> Cerrar el día de hoy</div>
       <div class="nav-item" onclick="goToLanding()"><span class="nav-icon"></span> Cambiar negocio</div>
     </div>
@@ -1278,9 +1278,9 @@ function renderBizInfo(){
   const created=G.createdAt
     ? new Date(G.createdAt).toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'})
     : 'No registrado';
-  const capitalInicial=G.capitalInicial||b.capital||0;
+  const capitalInicial=G.capitalInicial||(G.capitalInicial===0?G.capital:G.capital)||b.capital||0;
   const gastosDiarios=G.expenses||b.expenses||0;
-  const tipo=bizDef.type||b.name||'Negocio';
+  const tipo=bizDef.type||bizDef.name||b.name||G.type||'Personalizado';
   const productos=G.products?.length||0;
   el.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.5rem">
@@ -1629,8 +1629,8 @@ function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg
 function showPage(p){
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
-  document.getElementById('page-'+p).classList.add('active');
-  document.querySelectorAll('.nav-item').forEach(el=>{ if(el.textContent.trim().toLowerCase().includes(p==='dashboard'?'dashboard':p==='ventas'?'ventas':p==='inventario'?'inventario':p==='finanzas'?'resultados':p==='reportes'?'reportes':p==='logros'?'logros':'')) el.classList.add('active'); });
+  document.getElementById('page-'+p)?.classList.add('active');
+  document.querySelector(`.nav-item[data-page="${p}"]`)?.classList.add('active');
   renderAll();
 }
 
