@@ -537,6 +537,29 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           </div>
           <table class="report-table" id="reportTable"></table>
         </div>
+
+        <!-- PROYECCIONES -->
+        <div class="sec-title" style="margin-top:1.5rem">Proyección de ganancias</div>
+        <div class="chart-card">
+          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.2rem">¿Si sigo vendiendo igual, cuánto ganaría? Calcula cuánto podrías ganar en el futuro basándote en tu promedio actual de ventas.</p>
+          <div class="form-row" style="margin-bottom:1rem;align-items:flex-end">
+            <div class="form-group">
+              <label>¿Cuánto tiempo quieres proyectar?</label>
+              <select id="projPeriod" onchange="renderProjection()">
+                <option value="30">1 mes (30 días)</option>
+                <option value="60">2 meses (60 días)</option>
+                <option value="90">3 meses (90 días)</option>
+                <option value="180">6 meses (180 días)</option>
+                <option value="365">1 año (365 días)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Ventas diarias estimadas ($)</label>
+              <input type="number" id="projSales" placeholder="Se calcula automáticamente" oninput="renderProjection()">
+            </div>
+          </div>
+          <div id="projectionResult"></div>
+        </div>
       </div>
 
       <!-- MI NEGOCIO -->
@@ -1460,6 +1483,61 @@ function renderFinStats(){
   finChartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Ingresos',data:incs,backgroundColor:'rgba(42,157,143,0.7)',borderRadius:6},{label:'Utilidad',data:profits,backgroundColor:'rgba(82,214,138,0.85)',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false}}}}});
 }
 
+function renderProjection(){
+  const el=document.getElementById('projectionResult');
+  if(!el) return;
+  const days=parseInt(document.getElementById('projPeriod')?.value||30);
+  // Calcular promedio diario de ventas de los últimos días reales
+  const totalDays=Math.max(G.history?.length||1,1);
+  const totalSales=(G.sales||[]).reduce((a,s)=>a+s.total,0)+(G.todayIncome||0);
+  const avgDailySales=totalSales/totalDays;
+  // Permitir que el usuario ajuste el promedio
+  const inputVal=parseFloat(document.getElementById('projSales')?.value);
+  const dailySales=(!isNaN(inputVal)&&inputVal>0)?inputVal:avgDailySales;
+  // Si no hay placeholder aún, poner el calculado
+  const projInput=document.getElementById('projSales');
+  if(projInput&&!projInput.value&&avgDailySales>0){
+    projInput.placeholder=`Promedio actual: ${fmt(Math.round(avgDailySales))}/día`;
+  }
+  const dailyExpenses=G.expenses||0;
+  const projIncome=dailySales*days;
+  const projExpenses=dailyExpenses*days;
+  const projProfit=projIncome-projExpenses;
+  const projRoi=projExpenses>0?((projProfit/projExpenses)*100).toFixed(1):0;
+  const isPositive=projProfit>=0;
+  // Hitos mensuales
+  const milestones=[30,60,90,180,365].filter(d=>d<=days);
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem">
+      <div class="report-sum-card"><div class="rs-label">Ingresos proyectados</div><div class="rs-value">${fmtK(projIncome)}</div></div>
+      <div class="report-sum-card"><div class="rs-label">Gastos proyectados</div><div class="rs-value">${fmtK(projExpenses)}</div></div>
+      <div class="report-sum-card" style="background:${isPositive?'linear-gradient(135deg,#1D6B4E,#2A9D8F)':'linear-gradient(135deg,#8B2020,#c0392b)'}">
+        <div class="rs-label">Ganancia proyectada</div>
+        <div class="rs-value">${fmtK(projProfit)}</div>
+      </div>
+      <div class="report-sum-card"><div class="rs-label">ROI proyectado</div><div class="rs-value">${projRoi}%</div></div>
+    </div>
+    <div style="background:rgba(42,157,143,0.06);border:1.5px solid var(--border-card);border-radius:12px;padding:1.2rem;margin-bottom:1rem">
+      <div style="font-weight:600;color:var(--navy);margin-bottom:0.8rem">Proyección día a día — cada ${days<=60?'semana':'mes'}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.6rem">
+        ${milestones.map(m=>{
+          const inc=dailySales*m;
+          const exp=dailyExpenses*m;
+          const prof=inc-exp;
+          return `<div style="background:white;border:1px solid var(--border-card);border-radius:10px;padding:0.6rem 1rem;min-width:130px">
+            <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.3rem">A ${m===30?'1 mes':m===60?'2 meses':m===90?'3 meses':m===180?'6 meses':'1 año'}</div>
+            <div style="font-weight:700;color:${prof>=0?'var(--teal)':'#e57373'};font-size:1rem">${fmtK(prof)}</div>
+            <div style="font-size:0.72rem;color:var(--muted)">${fmtK(inc)} en ventas</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div style="font-size:0.8rem;color:var(--muted);background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:0.8rem">
+      Esta proyección se calcula con base en tu promedio de ventas diarias de ${fmt(Math.round(dailySales))}. 
+      ${avgDailySales===0?'Registra ventas primero para obtener un promedio real.':'Los resultados son estimados — pueden variar según tus ventas reales futuras.'}
+    </div>`;
+}
+
 // ══════════════════ REPORTES ══════════════════
 function setPeriod(days,btn){
   reportPeriod=days;
@@ -1502,9 +1580,151 @@ function downloadCSV(){
 function downloadPDF(){
   const sales=getSalesInPeriod();
   const totalIncome=sales.reduce((a,s)=>a+s.total,0);
-  const html=`<html><head><title>Reporte BizWorld</title><style>body{font-family:Arial,sans-serif;padding:2rem;color:#1a3a2a;}h1{color:#1D4E6B;}table{width:100%;border-collapse:collapse;margin-top:1rem;}th{background:#1D4E6B;color:white;padding:0.6rem 1rem;text-align:left;}td{padding:0.5rem 1rem;border-bottom:1px solid #eee;}.total{font-weight:bold;font-size:1.1rem;margin-top:1rem;color:#2A9D8F;}</style></head><body><h1>🏪 BizWorld — Reporte Financiero</h1><p>Negocio: <strong>${G.type}</strong> | Período: últimos ${reportPeriod} días</p><table><tr><th>Día</th><th>Producto</th><th>Cantidad</th><th>Total</th></tr>${sales.map(s=>`<tr><td>Día ${s.day}</td><td>${s.product}</td><td>${s.qty}</td><td>${fmt(s.total)}</td></tr>`).join('')}</table><p class="total">Total ingresos: ${fmt(totalIncome)}</p></body></html>`;
-  const w=window.open('','_blank'); w.document.write(html); w.document.close(); w.print();
-  toast('✅ Reporte PDF generado');
+  const daysInPeriod=Math.min(reportPeriod,G.history.length);
+  const totalExpenses=daysInPeriod*(G.expenses||0);
+  const profit=totalIncome-totalExpenses;
+  const roi=totalExpenses>0?((profit/totalExpenses)*100).toFixed(1):0;
+  const bizName=G._bizDef?.name||BUSINESSES[G.type]?.name||G.type||'Mi negocio';
+  const created=G.createdAt?new Date(G.createdAt).toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'}):'No registrado';
+  const capitalInicial=G.capitalInicial||G.capital||0;
+  const periodLabel=reportPeriod===9999?'Todo el tiempo':`Últimos ${reportPeriod} días`;
+  const today=new Date().toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'});
+
+  // Agrupar ventas por producto
+  const byProduct={};
+  sales.forEach(s=>{
+    if(!byProduct[s.product]) byProduct[s.product]={qty:0,total:0,count:0};
+    byProduct[s.product].qty+=s.qty;
+    byProduct[s.product].total+=s.total;
+    byProduct[s.product].count++;
+  });
+  const topProduct=Object.entries(byProduct).sort((a,b)=>b[1].total-a[1].total)[0];
+
+  const html=`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte BizWorld — ${bizName}</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,sans-serif;color:#1a3a2a;background:#fff;padding:2.5rem;}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2A9D8F;padding-bottom:1.5rem;margin-bottom:2rem;}
+  .logo{font-size:2.5rem;font-weight:900;color:#1D4E6B;}.logo span{color:#52D68A;}
+  .header-right{text-align:right;font-size:0.85rem;color:#5a7a6a;}
+  .header-right strong{display:block;font-size:1rem;color:#1D4E6B;margin-bottom:0.3rem;}
+  .section-title{font-size:1rem;font-weight:700;color:#1D4E6B;border-left:4px solid #2A9D8F;padding-left:0.8rem;margin:1.8rem 0 1rem;}
+  .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
+  .summary-card{background:#f0fdf6;border:1.5px solid #3EC9A7;border-radius:10px;padding:1rem;text-align:center;}
+  .summary-card .label{font-size:0.7rem;color:#5a7a6a;text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem;}
+  .summary-card .value{font-size:1.4rem;font-weight:700;color:#1D4E6B;}
+  .summary-card .value.positive{color:#2A9D8F;}
+  .summary-card .value.negative{color:#e57373;}
+  .summary-card .sub{font-size:0.72rem;color:#5a7a6a;margin-top:0.2rem;}
+  .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;}
+  .info-item{font-size:0.85rem;}.info-item strong{display:block;color:#1D4E6B;margin-bottom:0.2rem;}
+  .info-item span{color:#5a7a6a;}
+  table{width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:1.5rem;}
+  thead tr{background:#1D4E6B;color:#fff;}
+  thead th{padding:0.7rem 1rem;text-align:left;font-size:0.78rem;letter-spacing:0.5px;}
+  tbody tr:nth-child(even){background:#f8fffe;}
+  tbody tr:hover{background:#e8f6f3;}
+  tbody td{padding:0.65rem 1rem;border-bottom:1px solid #e0f0ee;}
+  .total-row td{font-weight:700;background:#e8f6f3;color:#1D4E6B;border-top:2px solid #2A9D8F;}
+  .product-table th:last-child,tbody td:last-child{text-align:right;}
+  .highlight{background:linear-gradient(135deg,#1D4E6B,#2A9D8F);color:#fff;border-radius:10px;padding:1rem 1.5rem;margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;}
+  .highlight h4{font-size:0.9rem;opacity:0.85;margin-bottom:0.3rem;}
+  .highlight .big{font-size:1.3rem;font-weight:700;}
+  .footer{border-top:2px solid #e0f0ee;padding-top:1rem;margin-top:2rem;font-size:0.75rem;color:#5a7a6a;display:flex;justify-content:space-between;}
+  @media print{body{padding:1rem;}button{display:none;}}
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">Biz<span>World</span></div>
+      <div style="font-size:0.9rem;color:#5a7a6a;margin-top:0.3rem">Simulador de Negocios</div>
+    </div>
+    <div class="header-right">
+      <strong>Reporte Financiero</strong>
+      <div>${bizName}</div>
+      <div>Período: ${periodLabel}</div>
+      <div>Generado el: ${today}</div>
+    </div>
+  </div>
+
+  <div class="section-title">Información del negocio</div>
+  <div class="info-grid">
+    <div class="info-item"><strong>Nombre del negocio</strong><span>${bizName}</span></div>
+    <div class="info-item"><strong>Fecha de inicio</strong><span>${created}</span></div>
+    <div class="info-item"><strong>Capital inicial</strong><span>${fmt(capitalInicial)}</span></div>
+    <div class="info-item"><strong>Días simulados</strong><span>${G.day||1} días</span></div>
+    <div class="info-item"><strong>Gastos fijos diarios</strong><span>${fmt(G.expenses||0)}</span></div>
+    <div class="info-item"><strong>Productos en catálogo</strong><span>${G.products?.length||0} productos</span></div>
+  </div>
+
+  <div class="section-title">Resumen financiero — ${periodLabel}</div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="label">Ingresos brutos</div>
+      <div class="value positive">${fmt(totalIncome)}</div>
+      <div class="sub">${sales.length} ventas registradas</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Gastos operativos</div>
+      <div class="value">${fmt(totalExpenses)}</div>
+      <div class="sub">${daysInPeriod} días × ${fmt(G.expenses||0)}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">Utilidad neta</div>
+      <div class="value ${profit>=0?'positive':'negative'}">${fmt(profit)}</div>
+      <div class="sub">${profit>=0?'Ganancia positiva':'Pérdida acumulada'}</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">ROI estimado</div>
+      <div class="value ${parseFloat(roi)>=0?'positive':'negative'}">${roi}%</div>
+      <div class="sub">Retorno sobre inversión</div>
+    </div>
+  </div>
+
+  ${topProduct?`<div class="highlight">
+    <div><h4>Producto más vendido del período</h4><div class="big">${topProduct[0]}</div></div>
+    <div style="text-align:right"><h4>Total generado</h4><div class="big">${fmt(topProduct[1].total)}</div></div>
+    <div style="text-align:right"><h4>Unidades vendidas</h4><div class="big">${topProduct[1].qty}</div></div>
+  </div>`:''}
+
+  <div class="section-title">Ventas por producto</div>
+  <table class="product-table">
+    <thead><tr><th>Producto</th><th>Veces vendido</th><th>Unidades totales</th><th>Total generado</th></tr></thead>
+    <tbody>
+      ${Object.entries(byProduct).sort((a,b)=>b[1].total-a[1].total).map(([prod,data])=>`
+        <tr><td>${prod}</td><td>${data.count}</td><td>${data.qty}</td><td>${fmt(data.total)}</td></tr>
+      `).join('')}
+      <tr class="total-row"><td>TOTAL</td><td>${sales.length}</td><td>${sales.reduce((a,s)=>a+s.qty,0)}</td><td>${fmt(totalIncome)}</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Detalle de todas las ventas</div>
+  <table>
+    <thead><tr><th>Día</th><th>Producto</th><th>Cantidad</th><th>Total</th></tr></thead>
+    <tbody>
+      ${sales.length?sales.map(s=>`<tr><td>Día ${s.day}</td><td>${s.product}</td><td>${s.qty}</td><td>${fmt(s.total)}</td></tr>`).join('')
+      :'<tr><td colspan="4" style="text-align:center;color:#999;padding:1.5rem">No hay ventas en este período</td></tr>'}
+      ${sales.length?`<tr class="total-row"><td colspan="3">TOTAL DEL PERÍODO</td><td>${fmt(totalIncome)}</td></tr>`:''}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div>BizWorld — Simulador de Negocios · jesusgarciabrice.github.io/bizworld</div>
+    <div>Reporte generado el ${today}</div>
+  </div>
+</body>
+</html>`;
+
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(), 500);
+  toast('Reporte PDF generado');
 }
 
 // ══════════════════ LOGROS ══════════════════
@@ -1640,7 +1860,7 @@ function renderAll(){
   renderStats(); renderAlerts(); renderCharts();
   renderSaleLog(); renderInventory(); renderFinStats();
   renderChecklist(); renderChallenge(); renderLogros();
-  renderReportes(); renderExpensesConfig(); renderBizInfo();
+  renderReportes(); renderExpensesConfig(); renderBizInfo(); renderProjection();
 }
 
 // ══════════════════ INIT ══════════════════
@@ -1701,6 +1921,7 @@ window.openCustomModal=openCustomModal; window.closeCustomModal=closeCustomModal
 window.addProductRow=addProductRow; window.saveCustomBusiness=saveCustomBusiness;
 window.toggleChat=toggleChat; window.sendChat=sendChat;
 window.togglePass=togglePass; window.suggestExpenses=suggestExpenses;
+window.renderProjection=renderProjection;
 window.setPeriod=setPeriod; window.downloadCSV=downloadCSV; window.downloadPDF=downloadPDF;
 window.nextOnboarding=nextOnboarding; window.skipOnboarding=skipOnboarding;
 window.BUSINESSES=BUSINESSES;
