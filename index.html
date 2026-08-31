@@ -544,14 +544,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1.2rem">Calcula cuánto podrías ganar en el futuro y guarda distintos escenarios para compararlos.</p>
           <div class="form-row" style="align-items:flex-end;margin-bottom:0.8rem">
             <div class="form-group">
-              <label>¿Cuánto tiempo proyectar?</label>
-              <select id="projPeriod" onchange="renderProjection()">
-                <option value="30">1 mes (30 días)</option>
-                <option value="60">2 meses (60 días)</option>
-                <option value="90">3 meses (90 días)</option>
-                <option value="180">6 meses (180 días)</option>
-                <option value="365">1 año (365 días)</option>
-              </select>
+              <label>¿Cuántos días quieres proyectar?</label>
+              <input type="number" id="projPeriod" placeholder="Escribe los días (ej: 15, 45, 90...)" min="1" oninput="renderProjection()">
+              <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem">
+                <button onclick="setProj(15)" class="period-btn" style="font-size:0.75rem;padding:0.2rem 0.7rem">15 días</button>
+                <button onclick="setProj(30)" class="period-btn" style="font-size:0.75rem;padding:0.2rem 0.7rem">1 mes</button>
+                <button onclick="setProj(60)" class="period-btn" style="font-size:0.75rem;padding:0.2rem 0.7rem">2 meses</button>
+                <button onclick="setProj(90)" class="period-btn" style="font-size:0.75rem;padding:0.2rem 0.7rem">3 meses</button>
+                <button onclick="setProj(180)" class="period-btn" style="font-size:0.75rem;padding:0.2rem 0.7rem">6 meses</button>
+                <button onclick="setProj(365)" class="period-btn" style="font-size:0.75rem;padding:0.2rem 0.7rem">1 año</button>
+              </div>
             </div>
             <div class="form-group">
               <label>Ventas diarias ($) — edita si quieres simular otro valor</label>
@@ -1489,7 +1491,9 @@ function renderFinStats(){
 }
 
 function saveProjection(){
-  const days=parseInt(document.getElementById('projPeriod')?.value||30);
+  const daysVal=document.getElementById('projPeriod')?.value;
+  const days=parseInt(daysVal);
+  if(!daysVal||isNaN(days)||days<=0){ toast('Primero escribe cuántos días quieres proyectar.'); return; }
   const inputVal=parseFloat(document.getElementById('projSales')?.value);
   const totalDays=Math.max(G.history?.length||1,1);
   const totalSales=(G.sales||[]).reduce((a,s)=>a+s.total,0)+(G.todayIncome||0);
@@ -1501,7 +1505,7 @@ function saveProjection(){
   const projExpenses=dailyExpenses*days;
   const projProfit=projIncome-projExpenses;
   const roi=projExpenses>0?((projProfit/projExpenses)*100).toFixed(1):0;
-  const periodLabels={30:'1 mes',60:'2 meses',90:'3 meses',180:'6 meses',365:'1 año'};
+  const periodLabels={15:'15 días',30:'1 mes',60:'2 meses',90:'3 meses',180:'6 meses',365:'1 año'};
   const scenario={
     id:Date.now(), name, days,
     periodLabel:periodLabels[days]||`${days} días`,
@@ -1572,10 +1576,21 @@ function renderSavedProjections(){
     </div>`;
 }
 
+function setProj(days){
+  document.getElementById('projPeriod').value=days;
+  renderProjection();
+}
+
 function renderProjection(){
   const el=document.getElementById('projectionResult');
   if(!el) return;
-  const days=parseInt(document.getElementById('projPeriod')?.value||30);
+  const daysVal=document.getElementById('projPeriod')?.value;
+  const days=parseInt(daysVal);
+  // Si no hay días escritos, mostrar mensaje vacío
+  if(!daysVal||isNaN(days)||days<=0){
+    el.innerHTML=`<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:0.9rem">Escribe cuántos días quieres proyectar o elige una opción rápida arriba.</div>`;
+    return;
+  }
   // Calcular promedio diario de ventas de los últimos días reales
   const totalDays=Math.max(G.history?.length||1,1);
   const totalSales=(G.sales||[]).reduce((a,s)=>a+s.total,0)+(G.todayIncome||0);
@@ -2010,7 +2025,7 @@ window.openCustomModal=openCustomModal; window.closeCustomModal=closeCustomModal
 window.addProductRow=addProductRow; window.saveCustomBusiness=saveCustomBusiness;
 window.toggleChat=toggleChat; window.sendChat=sendChat;
 window.togglePass=togglePass; window.suggestExpenses=suggestExpenses;
-window.renderProjection=renderProjection; window.saveProjection=saveProjection; window.deleteProjection=deleteProjection;
+window.renderProjection=renderProjection; window.saveProjection=saveProjection; window.deleteProjection=deleteProjection; window.setProj=setProj;
 window.setPeriod=setPeriod; window.downloadCSV=downloadCSV; window.downloadPDF=downloadPDF;
 window.nextOnboarding=nextOnboarding; window.skipOnboarding=skipOnboarding;
 window.BUSINESSES=BUSINESSES;
