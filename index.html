@@ -683,20 +683,34 @@ onAuthStateChanged(auth, async (user)=>{
     if(lastType){
       const d=localStorage.getItem(`bw_${user.uid}_${lastType}`);
       if(d){
-        window.G=JSON.parse(d);
+        const savedG=JSON.parse(d);
+        window.G=savedG; // Establecer ANTES de llamar launchApp
         const b=window.BUSINESSES?window.BUSINESSES[lastType]:null;
-        const bizDef=window.G._bizDef;
+        const bizDef=savedG._bizDef;
         const name=b?b.name:(bizDef?bizDef.name:lastType);
         const icon=b?b.icon:(bizDef?bizDef.icon:'');
-        window.launchApp(`${icon} ${name}`.trim(), `Bienvenido de nuevo, ${window.currentUser.name}`);
+        // Esperar a que launchApp esté disponible
+        const tryLaunch=()=>{
+          if(window.launchApp){
+            window.launchApp(`${icon} ${name}`.trim(), `Bienvenido de nuevo, ${window.currentUser.name}`);
+          } else {
+            setTimeout(tryLaunch, 100);
+          }
+        };
+        tryLaunch();
         return;
       }
     }
 
     // Si no hay nada guardado, mostrar selección
     const firstTime=!localStorage.getItem('bw_onboard_'+user.uid);
-    if(firstTime) window.showOnboarding?.(); 
-    else { window.showLanding?.(); }
+    const tryShow=()=>{
+      if(window.showOnboarding&&window.showLanding){
+        if(firstTime) window.showOnboarding(); 
+        else window.showLanding();
+      } else { setTimeout(tryShow,100); }
+    };
+    tryShow();
   }
 });
 </script>
@@ -821,10 +835,11 @@ async function doLogout(){
 }
 
 // ══ CLAVE DE GUARDADO — siempre incluye el uid del usuario ══
-function bizKey(type){ return `bw_${currentUser?.uid||'demo'}_${type}`; }
-function lastKey(){ return `bw_${currentUser?.uid||'demo'}_last`; }
+function bizKey(type){ const uid=(window.currentUser||currentUser)?.uid||'demo'; return `bw_${uid}_${type}`; }
+function lastKey(){ const uid=(window.currentUser||currentUser)?.uid||'demo'; return `bw_${uid}_last`; }
 
 async function saveG(){
+  if(!currentUser&&window.currentUser) currentUser=window.currentUser;
   if(!G.type||!currentUser) return;
   localStorage.setItem(bizKey(G.type), JSON.stringify(G));
   localStorage.setItem(lastKey(), G.type);
@@ -913,7 +928,7 @@ function renderAllBusinesses(){
 
   // Negocios guardados del usuario — usando clave con uid
   const savedBusinesses=[];
-  const uid=currentUser?.uid||'demo';
+  const uid=(window.currentUser||currentUser)?.uid||'demo';
   baseBusinesses.forEach(b=>{
     const d=localStorage.getItem(`bw_${uid}_${b.type}`);
     if(d){
@@ -1067,6 +1082,14 @@ function startGame(type){
 }
 
 function launchApp(badgeName, welcomeTitle){
+  if(!currentUser&&window.currentUser) currentUser=window.currentUser;
+  // Sincronizar G desde window.G si fue cargado por el módulo Firebase
+  if(window.G && window.G.type && (!G.type || !G.products)) G=window.G;
+  // Si G.products sigue sin existir, cargar desde BUSINESSES
+  if(G.type && (!G.products || !G.products.length)){
+    const b=BUSINESSES[G.type];
+    if(b) G.products=b.products.map(p=>({...p}));
+  }
   saveG();
   document.getElementById('app').style.display='block';
   document.getElementById('topBizName').textContent=badgeName;
@@ -1074,7 +1097,6 @@ function launchApp(badgeName, welcomeTitle){
   document.getElementById('welcomeSub').textContent=`Aquí puedes ver cómo va tu negocio. Registra lo que vendes, revisa tus productos y toma decisiones para crecer.`;
   if(currentUser){
     const av=document.getElementById('userAvatar');
-    // Actualizar solo el texto del avatar sin borrar el menú
     const initial=(currentUser.name||currentUser.email||'U')[0].toUpperCase();
     av.childNodes[0].textContent=initial;
   }
@@ -1223,6 +1245,7 @@ function undoDay(){
 function updateTopDay(){ document.getElementById('topDay').textContent=`Día ${G.day}`; }
 
 function buildSaleForm(){
+  if(!G.products||!G.products.length) return;
   document.getElementById('saleFormRow').innerHTML=`
     <div class="form-group"><label>Producto</label>
     <select id="saleProduct">${G.products.map(p=>`<option value="${p.id}">${p.name} — ${fmt(p.price)}</option>`).join('')}</select></div>
