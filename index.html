@@ -715,6 +715,9 @@ onAuthStateChanged(auth, async (user)=>{
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('registerScreen').style.display='none';
 
+    // Limpiar claves viejas sin uid antes de mostrar
+    if(window.cleanOldKeys) window.cleanOldKeys();
+
     // Siempre mostrar la pantalla de selección al entrar
     const tryShow=()=>{
       if(window.showLanding){
@@ -922,7 +925,25 @@ function skipOnboarding(){
 function showLanding(){
   document.getElementById('landing').style.display='flex';
   document.getElementById('app').style.display='none';
+  // Limpiar claves viejas sin uid que puedan contaminar otros usuarios
+  cleanOldKeys();
   renderAllBusinesses();
+}
+
+function cleanOldKeys(){
+  // Eliminar claves antiguas que no tienen uid (formato viejo: bw_tienda, bw_last, etc.)
+  const toDelete=[];
+  Object.keys(localStorage).forEach(k=>{
+    if(k.startsWith('bw_') && !k.startsWith('bw_onboard_')){
+      // Clave válida nueva: bw_{uid}_{algo} — el uid tiene al menos 20 chars
+      const parts=k.replace('bw_','').split('_');
+      const uid=parts[0];
+      // Si el uid es corto (tienda, boutique, etc.) es una clave vieja sin uid
+      if(uid.length<15) toDelete.push(k);
+    }
+  });
+  toDelete.forEach(k=>localStorage.removeItem(k));
+  if(toDelete.length>0) console.log(`Limpiadas ${toDelete.length} claves antiguas`);
 }
 
 function getBizIcon(tipo){
@@ -2089,7 +2110,7 @@ if(document.readyState==='loading'){
 window.undoSale=undoSale; window.continueBusiness=continueBusiness; window.deleteBusiness=deleteBusiness;
 window.toggleUserMenu=toggleUserMenu;
 window.showLogin=showLogin; window.showRegister=showRegister;
-window.showLanding=showLanding; window.showOnboarding=showOnboarding;
+window.cleanOldKeys=cleanOldKeys; window.showLanding=showLanding; window.showOnboarding=showOnboarding;
 window.doLogin=doLogin; window.doRegister=doRegister;
 window.forgotPassword=forgotPassword; window.demoLogin=demoLogin;
 window.doLogout=doLogout; window.showPage=showPage;
