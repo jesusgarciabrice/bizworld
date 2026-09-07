@@ -731,6 +731,150 @@ onAuthStateChanged(auth, async (user)=>{
 
 <!-- Script principal (NO módulo) -->
 <script>
+// ══════════════════════════════════════════════════════════
+// BIZWORLD — MOTOR FINANCIERO CENTRAL v2.0
+// Todas las métricas pasan por estas funciones
+// ══════════════════════════════════════════════════════════
+
+// ── Escape XSS ──
+function escapeHTML(str){
+  if(str===null||str===undefined) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+// ── Generar ID único ──
+function genId(){
+  return Date.now().toString(36)+Math.random().toString(36).substr(2,5);
+}
+
+// ── Asegurar estado válido del negocio ──
+function ensureGameState(g){
+  if(!g) g={};
+  g.products   = Array.isArray(g.products)   ? g.products   : [];
+  g.sales      = Array.isArray(g.sales)      ? g.sales      : [];
+  g.purchases  = Array.isArray(g.purchases)  ? g.purchases  : [];
+  g.history    = Array.isArray(g.history)    ? g.history    : [];
+  g.todaySales = Array.isArray(g.todaySales) ? g.todaySales : [];
+  g.projections= Array.isArray(g.projections)? g.projections: [];
+  if(typeof g.achievements!=='object'||!g.achievements) g.achievements={};
+  if(typeof g.activity!=='object'||!g.activity) g.activity={};
+  if(!g.day||g.day<1) g.day=1;
+  if(typeof g.todayIncome!=='number'||isNaN(g.todayIncome)) g.todayIncome=0;
+  if(typeof g.capital!=='number'||isNaN(g.capital)) g.capital=g.capitalInicial||0;
+  if(typeof g.expenses!=='number'||isNaN(g.expenses)) g.expenses=0;
+  // Migrar ventas antiguas: agregar id y costo si no tienen
+  g.sales=g.sales.map(s=>{
+    if(!s.id) s.id=genId();
+    if(s.unitCost===undefined){
+      // Buscar costo del producto en catálogo como fallback
+      const prod=g.products.find(p=>p.name===(s.product||s.name));
+      s.unitCost=prod?prod.cost:0;
+      s.cogs=(s.unitCost||0)*(s.qty||0);
+      s.grossProfit=(s.total||0)-(s.cogs||0);
+    }
+    // Normalizar campo: product vs name
+    if(!s.product&&s.name) s.product=s.name;
+    if(!s.name&&s.product) s.name=s.product;
+    return s;
+  });
+  // Migrar todaySales igual
+  g.todaySales=g.todaySales.map(s=>{
+    if(!s.id) s.id=genId();
+    if(!s.product&&s.name) s.product=s.name;
+    if(!s.name&&s.product) s.name=s.product;
+    return s;
+  });
+  // Sincronizar todayIncome desde todaySales si hay discrepancia
+  const computedToday=g.todaySales.reduce((a,s)=>a+(s.total||0),0);
+  if(computedToday>0&&Math.abs(computedToday-g.todayIncome)>1) g.todayIncome=computedToday;
+  g.schemaVersion=2;
+  return g;
+}
+
+// ══════════════════════════════════════════════════════════
+// MOTOR FINANCIERO CENTRAL
+// ══════════════════════════════════════════════════════════
+
+// Devuelve métricas financieras coherentes para TODO el negocio
+function getFinancialMetrics(){
+  const g=G;
+  // Ingresos de días CERRADOS (history)
+  const closedRevenue=g.history.reduce((a,h)=>a+(h.revenue||h.income||0),0);
+  // Costo de ventas de días cerrados
+  const closedCOGS=g.history.reduce((a,h)=>a+(h.cogs||0),0);
+  // Gastos operativos REALES (solo días cerrados, usando el gasto registrado en ese día)
+  const closedExpenses=g.history.reduce((a,h)=>a+(h.operatingExpenses||h.expense||0),0);
+
+  // Ingresos del día ACTUAL (no cerrado)
+  const todayRevenue=g.todayIncome||0;
+  // COGS del día actual
+  const todayCOGS=g.todaySales.reduce((a,s)=>a+(s.cogs||(s.unitCost||0)*(s.qty||0)),0);
+
+  // Totales
+  const totalRevenue=closedRevenue+todayRevenue;
+  const totalCOGS=closedCOGS+todayCOGS;
+  const grossProfit=totalRevenue-totalCOGS;
+  // Gastos operativos = solo días cerrados (el día actual NO se ha cerrado aún)
+  const totalOperatingExpenses=closedExpenses;
+  const netProfit=grossProfit-totalOperatingExpenses;
+  const grossMargin=totalRevenue>0?((grossProfit/totalRevenue)*100):0;
+  const netMargin=totalRevenue>0?((netProfit/totalRevenue)*100):0;
+  const capitalInicial=g.capitalInicial||g.capital||0;
+  const roi=capitalInicial>0?((netProfit/capitalInicial)*100):0;
+  const totalSalesCount=g.sales.length;
+  const daysClosed=g.history.length;
+  const currentDay=g.day||1;
+
+  return {
+    // Capital
+    cash: g.capital,
+    capitalInicial,
+    // Ingresos
+    totalRevenue, closedRevenue, todayRevenue,
+    // Costos
+    totalCOGS, closedCOGS, todayCOGS,
+    // Utilidades
+    grossProfit, netProfit,
+    totalOperatingExpenses,
+    // Márgenes
+    grossMargin: +grossMargin.toFixed(1),
+    netMargin: +netMargin.toFixed(1),
+    roi: +roi.toFixed(1),
+    // Conteos
+    totalSalesCount, daysClosed, currentDay,
+  };
+}
+
+// Métricas para un período específico (por rango de días cerrados)
+function getPeriodMetrics(fromDay, toDay){
+  const g=G;
+  const periodHistory=g.history.filter(h=>h.day>=fromDay&&h.day<=toDay);
+  const periodSales=g.sales.filter(s=>s.day>=fromDay&&s.day<=toDay);
+  const revenue=periodHistory.reduce((a,h)=>a+(h.revenue||h.income||0),0);
+  const cogs=periodHistory.reduce((a,h)=>a+(h.cogs||0),0);
+  const expenses=periodHistory.reduce((a,h)=>a+(h.operatingExpenses||h.expense||0),0);
+  const grossProfit=revenue-cogs;
+  const netProfit=grossProfit-expenses;
+  const salesCount=periodSales.length;
+  const unitsCount=periodSales.reduce((a,s)=>a+(s.qty||0),0);
+  // Producto más vendido por ingresos
+  const byProduct={};
+  periodSales.forEach(s=>{
+    const name=s.product||s.name||'?';
+    if(!byProduct[name]) byProduct[name]={revenue:0,qty:0,count:0};
+    byProduct[name].revenue+=(s.total||0);
+    byProduct[name].qty+=(s.qty||0);
+    byProduct[name].count++;
+  });
+  const topProduct=Object.entries(byProduct).sort((a,b)=>b[1].revenue-a[1].revenue)[0]||null;
+  return {
+    revenue, cogs, grossProfit, expenses, netProfit,
+    salesCount, unitsCount, byProduct, topProduct,
+    days: periodHistory.length,
+  };
+}
+
+
 function togglePass(id, btn){
   const input=document.getElementById(id);
   const eyeOpen=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -833,6 +977,10 @@ async function forgotPassword(){
 function demoLogin(){
   currentUser=window.currentUser={uid:'demo',name:'Demo',email:'demo@bizworld.com',avatar:'D'};
   sessionStorage.setItem('bw_demo','1');
+  // Ocultar todas las pantallas de auth
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('registerScreen').style.display='none';
+  document.getElementById('onboardingScreen').style.display='none';
   showLanding();
 }
 
@@ -931,19 +1079,25 @@ function showLanding(){
 }
 
 function cleanOldKeys(){
-  // Eliminar claves antiguas que no tienen uid (formato viejo: bw_tienda, bw_last, etc.)
+  const currentUid=(window.currentUser||currentUser)?.uid;
+  if(!currentUid) return;
+  // Formato válido: bw_{uid}_{tipo} o bw_onboard_{uid}
+  // Claves legacy (sin uid): bw_tienda, bw_boutique, bw_cafeteria, bw_last, bw_demo_* (para no-demo users)
+  const legacyPatterns=['bw_tienda','bw_boutique','bw_cafeteria','bw_last'];
   const toDelete=[];
   Object.keys(localStorage).forEach(k=>{
-    if(k.startsWith('bw_') && !k.startsWith('bw_onboard_')){
-      // Clave válida nueva: bw_{uid}_{algo} — el uid tiene al menos 20 chars
-      const parts=k.replace('bw_','').split('_');
-      const uid=parts[0];
-      // Si el uid es corto (tienda, boutique, etc.) es una clave vieja sin uid
-      if(uid.length<15) toDelete.push(k);
-    }
+    if(!k.startsWith('bw_')) return;
+    if(k.startsWith('bw_onboard_')) return; // nunca borrar
+    // Si es clave de otro usuario, no tocar
+    if(k.startsWith(`bw_${currentUid}_`)) return; // clave propia, ok
+    // Clave legacy exacta
+    if(legacyPatterns.includes(k)){ toDelete.push(k); return; }
+    // Clave custom legacy: bw_custom_xxx (sin uid)
+    if(k.startsWith('bw_custom_')&&!k.startsWith(`bw_${currentUid}_`)){ toDelete.push(k); return; }
+    // Si empieza con bw_demo_ y el usuario no es demo
+    if(k.startsWith('bw_demo_')&&currentUid!=='demo'){ toDelete.push(k); return; }
   });
   toDelete.forEach(k=>localStorage.removeItem(k));
-  if(toDelete.length>0) console.log(`Limpiadas ${toDelete.length} claves antiguas`);
 }
 
 function getBizIcon(tipo){
@@ -1064,8 +1218,16 @@ function renderAllBusinesses(){
 function continueBusiness(type){
   const d=localStorage.getItem(bizKey(type));
   if(d){
-    G=JSON.parse(d);
+    try {
+      G=JSON.parse(d);
+    } catch(e) {
+      console.error('Error parsing saved business data:', e);
+      toast('Error al cargar el negocio. Iniciando desde cero.');
+      startGame(type); return;
+    }
     if(!G.type) G.type=type;
+    G=ensureGameState(G); // Migrar datos si es necesario
+    window.G=G;
     const b=BUSINESSES[type]||G._bizDef||{icon:'🏢',name:type};
     document.getElementById('landing').style.display='none';
     launchApp(`${b.icon||''} ${b.name||type}`.trim(), `Bienvenido de nuevo a "${b.name||type}"`);
@@ -1135,11 +1297,16 @@ function preloadDemo(type){
 function startGame(type){
   document.getElementById('landing').style.display='none';
   const b=BUSINESSES[type];
+  const uid=(window.currentUser||currentUser)?.uid;
   if(!loadBusiness(type)){
-    G={type,day:1,capital:b.capital,products:b.products.map(p=>({...p})),expenses:b.expenses,sales:[],history:[],todaySales:[],todayIncome:0,achievements:{},
+    G={type,day:1,capital:b.capital,products:b.products.map(p=>({...p})),
+      expenses:b.expenses,sales:[],purchases:[],history:[],todaySales:[],
+      todayIncome:0,achievements:{},activity:{},projections:[],
       createdAt:new Date().toISOString(), capitalInicial:b.capital};
-    preloadDemo(type);
+    // Solo carga datos demo para usuarios demo
+    if(uid==='demo') preloadDemo(type);
   }
+  G=ensureGameState(G);
   launchApp(b.icon+' '+b.name, `Bienvenido a tu negocio "${b.name}" ${b.icon}`);
 }
 
@@ -1152,6 +1319,9 @@ function launchApp(badgeName, welcomeTitle){
     const b=BUSINESSES[G.type];
     if(b) G.products=b.products.map(p=>({...p}));
   }
+  // Asegurar estructura válida y migrar datos antiguos
+  G=ensureGameState(G);
+  window.G=G;
   saveG();
   document.getElementById('app').style.display='block';
   document.getElementById('topBizName').textContent=badgeName;
@@ -1177,13 +1347,17 @@ function goToLanding(){
 // ══════════════════ AGREGAR PRODUCTO ══════════════════
 function addNewProduct(){
   const name=document.getElementById('newProdName').value.trim();
-  const price=parseInt(document.getElementById('newProdPrice').value)||0;
-  const cost=parseInt(document.getElementById('newProdCost').value)||0;
-  const stock=parseInt(document.getElementById('newProdStock').value)||10;
+  const price=parseFloat(document.getElementById('newProdPrice').value);
+  const cost=parseFloat(document.getElementById('newProdCost').value)||0;
+  const stock=parseFloat(document.getElementById('newProdStock').value)||0;
+  if(isNaN(price)||price<=0){ toast('El precio debe ser mayor a 0'); return; }
+  if(isNaN(cost)||cost<0){ toast('El costo no puede ser negativo'); return; }
+  if(isNaN(stock)||stock<0){ toast('El stock no puede ser negativo'); return; }
+  if(cost>price){ toast('Advertencia: el costo supera el precio de venta (margen negativo)'); }
   const unit=document.getElementById('newProdUnit')?.value||'unidad';
   if(!name){ toast('⚠️ Escribe el nombre del producto'); return; }
   if(price<=0){ toast('⚠️ El precio debe ser mayor a 0'); return; }
-  G.products.push({id:'prod_'+Date.now(),name,price,cost,stock,unit});
+  G.products.push({id:genId(),name,price,cost,stock,unit});
   saveG(); buildSaleForm(); buildBuyForm(); renderInventory();
   document.getElementById('newProdName').value='';
   document.getElementById('newProdPrice').value='';
@@ -1195,7 +1369,9 @@ function addNewProduct(){
 
 // ══════════════════ ACTUALIZAR GASTOS FIJOS ══════════════════
 function updateExpenses(){
-  const val=parseInt(document.getElementById('editExpenses').value)||0;
+  const raw=document.getElementById('editExpenses').value;
+  const val=(raw===''||raw===null)?0:parseFloat(raw);
+  if(isNaN(val)||val<0){ toast('El gasto debe ser 0 o mayor'); return; }
   G.expenses=val;
   saveG();
   renderExpensesConfig();
@@ -1269,7 +1445,7 @@ function saveCustomBusiness(){
   if(!name){ toast('⚠️ Ponle un nombre a tu negocio'); return; }
   if(products.length===0){ toast('⚠️ Agrega al menos un producto'); return; }
   const customKey='custom_'+Date.now();
-  G={type:customKey,day:1,capital,products,expenses,sales:[],history:[],todaySales:[],todayIncome:0,achievements:{},
+  G={type:customKey,day:1,capital,products,expenses,sales:[],purchases:[],history:[],todaySales:[],todayIncome:0,achievements:{},activity:{},projections:[],
     createdAt:new Date().toISOString(), capitalInicial:capital,
     _bizDef:{name,icon:getBizIcon(type||name),type:type,capital,expenses,products}};
   closeCustomModal();
@@ -1278,19 +1454,54 @@ function saveCustomBusiness(){
 }
 
 // ══════════════════ JUEGO ══════════════════
+let _closingDay=false;
 function nextDay(){
-  // Guardar snapshot para deshacer
-  G._lastSnapshot = JSON.stringify({
-    day: G.day, capital: G.capital, history: [...G.history],
-    products: G.products.map(p=>({...p})),
-    sales: [...G.sales], todaySales: [...G.todaySales],
-    todayIncome: G.todayIncome
+  if(_closingDay) return; // Prevenir doble clic
+  const expenses=typeof G.expenses==='number'?G.expenses:0;
+  if(G.todaySales.length===0){
+    if(!confirm(`No registraste ventas hoy.\nSi cierras el día se descontarán ${fmt(expenses)} de gastos fijos.\n¿Continuar?`)) return;
+  }
+  _closingDay=true;
+  // Calcular métricas del día a cerrar
+  const dayRevenue=G.todayIncome||0;
+  const dayCOGS=G.todaySales.reduce((a,s)=>a+(s.cogs||(s.unitCost||0)*(s.qty||0)),0);
+  const dayGrossProfit=dayRevenue-dayCOGS;
+  const dayNetProfit=dayGrossProfit-expenses;
+  // Guardar snapshot ANTES de modificar
+  G._lastSnapshot=JSON.stringify({
+    day:G.day, capital:G.capital,
+    history:JSON.parse(JSON.stringify(G.history)),
+    products:G.products.map(p=>({...p})),
+    sales:JSON.parse(JSON.stringify(G.sales)),
+    todaySales:JSON.parse(JSON.stringify(G.todaySales)),
+    todayIncome:G.todayIncome,
+    purchases:JSON.parse(JSON.stringify(G.purchases||[]))
   });
-  G.history.push({day:G.day,income:G.todayIncome,expense:G.expenses,profit:G.todayIncome-G.expenses});
-  G.capital-=G.expenses; G.day++; G.todaySales=[]; G.todayIncome=0;
+  // Registrar en historial con modelo completo
+  G.history.push({
+    day:G.day,
+    revenue:dayRevenue,
+    income:dayRevenue, // compatibilidad
+    cogs:dayCOGS,
+    grossProfit:dayGrossProfit,
+    operatingExpenses:expenses,
+    expense:expenses, // compatibilidad
+    netProfit:dayNetProfit,
+    profit:dayNetProfit, // compatibilidad
+    salesCount:G.todaySales.length,
+    closedAt:new Date().toISOString()
+  });
+  G.capital-=expenses;
+  G.day++;
+  G.todaySales=[];
+  G.todayIncome=0;
+  if(!G.activity) G.activity={};
+  G.activity.firstDayClosed=true;
   updateTopDay(); checkAchievements(); saveG(); renderAll();
-  document.getElementById('undoDayBtn').style.display='inline-flex';
-  toast(`Día ${G.day} iniciado. Se descontaron ${fmt(G.expenses)} de gastos fijos.`);
+  const btn=document.getElementById('undoDayBtn');
+  if(btn) btn.style.display='inline-flex';
+  toast(`Día ${G.day} iniciado. Se descontaron ${fmt(expenses)} de gastos.`);
+  setTimeout(()=>{ _closingDay=false; },1000);
 }
 
 function undoDay(){
@@ -1305,21 +1516,25 @@ function undoDay(){
   toast('Día deshecho correctamente. Volviste al día '+G.day+'.');
 }
 
-function undoSale(index){
-  if(!G.todaySales||index<0||index>=G.todaySales.length) return;
-  const sale=G.todaySales[index];
-  if(!confirm(`¿Deshacer la venta de "${sale.name}" (${fmt(sale.total)})?`)) return;
-  // Devolver stock al producto
-  const prod=G.products.find(p=>p.name===sale.name);
-  if(prod) prod.stock+=sale.qty;
-  // Descontar del total
-  G.todayIncome-=sale.total;
-  G.capital-=sale.total;
-  // Quitar de todaySales y sales
-  G.todaySales.splice(index,1);
-  G.sales=G.sales.filter((s,i)=>!(s.day===G.day&&s.product===sale.name&&s.total===sale.total&&i===G.sales.length-1-G.todaySales.length+index));
+function undoSale(saleId){
+  if(!G.todaySales) return;
+  const idx=G.todaySales.findIndex(s=>s.id===saleId);
+  if(idx<0){ toast('Venta no encontrada'); return; }
+  const sale=G.todaySales[idx];
+  const name=escapeHTML(sale.name||sale.product||'producto');
+  const revenue=sale.revenue||sale.total||0;
+  if(!confirm(`¿Deshacer la venta de "${name}" (${fmt(revenue)})?`)) return;
+  // Devolver stock exactamente
+  const prod=G.products.find(p=>p.id===sale.productId||p.name===sale.name);
+  if(prod) prod.stock=parseFloat((prod.stock+sale.qty).toFixed(4));
+  // Revertir caja e ingreso del día
+  G.todayIncome=parseFloat((G.todayIncome-revenue).toFixed(2));
+  G.capital=parseFloat((G.capital-revenue).toFixed(2));
+  // Eliminar por id
+  G.todaySales.splice(idx,1);
+  G.sales=G.sales.filter(s=>s.id!==saleId);
   saveG(); renderSaleLog(); renderInventory(); renderStats();
-  toast(`Venta de "${sale.name}" deshecha. Stock restaurado.`);
+  toast(`Venta de "${name}" deshecha. Stock restaurado.`);
 }
 
 function renderBizInfo(){
@@ -1379,17 +1594,35 @@ function buildSaleForm(){
 
 function registerSale(){
   const pid=document.getElementById('saleProduct').value;
-  const qty=parseInt(document.getElementById('saleQty').value)||1;
+  const unit=G.products.find(p=>p.id===pid)?.unit||'unidad';
+  const allowDecimal=['metro','kg','gramo','litro','libra'].includes(unit);
+  const rawQty=allowDecimal?parseFloat(document.getElementById('saleQty').value):parseInt(document.getElementById('saleQty').value);
+  if(isNaN(rawQty)||rawQty<=0){ toast('La cantidad debe ser mayor a 0'); return; }
+  const qty=rawQty;
   const prod=G.products.find(p=>p.id===pid);
-  if(!prod) return;
-  if(prod.stock<qty){ toast('⚠️ Stock insuficiente'); return; }
-  prod.stock-=qty;
-  const total=prod.price*qty;
-  G.capital+=total; G.todayIncome+=total;
-  G.todaySales.push({name:prod.name,qty,total,unit:prod.unit||'unidad'});
-  G.sales.push({day:G.day,product:prod.name,qty,total,unit:prod.unit||'unidad'});
+  if(!prod){ toast('Producto no encontrado'); return; }
+  if(prod.stock<qty){ toast('Stock insuficiente para esta venta'); return; }
+  prod.stock=parseFloat((prod.stock-qty).toFixed(4));
+  const revenue=parseFloat((prod.price*qty).toFixed(2));
+  const cogs=parseFloat((prod.cost*qty).toFixed(2));
+  const grossProfit=revenue-cogs;
+  const saleId=genId();
+  G.capital=parseFloat((G.capital+revenue).toFixed(2));
+  G.todayIncome=parseFloat((G.todayIncome+revenue).toFixed(2));
+  const saleRecord={
+    id:saleId,day:G.day,
+    product:prod.name,name:prod.name,
+    productId:prod.id,qty,unit:unit,
+    unitPrice:prod.price,unitCost:prod.cost,
+    revenue,total:revenue,cogs,grossProfit,
+    createdAt:new Date().toISOString()
+  };
+  G.todaySales.push(saleRecord);
+  G.sales.push({...saleRecord});
+  if(!G.activity) G.activity={};
+  G.activity.firstSaleCompleted=true;
   checkAchievements(); saveG(); renderSaleLog(); renderInventory(); renderStats();
-  toast(`💰 Venta: ${qty}×${prod.name} = ${fmt(total)}`);
+  toast(`Venta: ${qty} ${unit} × ${escapeHTML(prod.name)} = ${fmt(revenue)}`);
 }
 
 function buildBuyForm(){
@@ -1401,23 +1634,39 @@ function buildBuyForm(){
 
 function buyStock(){
   const pid=document.getElementById('buyProduct').value;
-  const qty=parseInt(document.getElementById('buyQty').value)||1;
+  const unit=G.products.find(p=>p.id===pid)?.unit||'unidad';
+  const allowDecimal=['metro','kg','gramo','litro','libra'].includes(unit);
+  const rawQty=allowDecimal?parseFloat(document.getElementById('buyQty').value):parseInt(document.getElementById('buyQty').value);
+  if(isNaN(rawQty)||rawQty<=0){ toast('La cantidad debe ser mayor a 0'); return; }
+  const qty=rawQty;
   const prod=G.products.find(p=>p.id===pid);
-  if(!prod) return;
-  const cost=prod.cost*qty;
-  if(G.capital<cost){ toast('⚠️ Capital insuficiente'); return; }
-  G.capital-=cost; prod.stock+=qty;
-  saveG(); renderInventory(); renderStats();
-  toast(`📦 Compra: ${qty}×${prod.name} por ${fmt(cost)}`);
+  if(!prod){ toast('Producto no encontrado'); return; }
+  const totalCost=parseFloat((prod.cost*qty).toFixed(2));
+  if(G.capital<totalCost){ toast(`Capital insuficiente. Necesitas ${fmt(totalCost)} pero tienes ${fmt(G.capital)}`); return; }
+  G.capital=parseFloat((G.capital-totalCost).toFixed(2));
+  prod.stock=parseFloat((prod.stock+qty).toFixed(4));
+  // Registrar en ledger de compras
+  if(!G.purchases) G.purchases=[];
+  G.purchases.push({
+    id:genId(),day:G.day,
+    productId:prod.id,productName:prod.name,
+    qty,unit,unitCost:prod.cost,totalCost,
+    createdAt:new Date().toISOString()
+  });
+  if(!G.activity) G.activity={};
+  G.activity.firstRestockCompleted=true;
+  checkAchievements(); saveG(); renderInventory(); renderStats();
+  toast(`Compra: ${qty} ${unit} × ${escapeHTML(prod.name)} por ${fmt(totalCost)}`);
 }
 
 // ══════════════════ RENDER ══════════════════
 function renderSaleLog(){
   const log=document.getElementById('saleLog');
   if(G.todaySales&&G.todaySales.length){
-    log.innerHTML=[...G.todaySales].reverse().map((s,i)=>{
-      const realIdx=G.todaySales.length-1-i;
-      return `<div class="sale-item"><span class="s-name">${s.name}</span><span class="s-qty">×${s.qty} ${s.unit||'u'}</span><span class="s-total">+${fmt(s.total)}</span><button onclick="undoSale(${realIdx})" style="background:none;border:1px solid #e57373;color:#e57373;border-radius:6px;padding:2px 8px;font-size:0.72rem;cursor:pointer;margin-left:0.5rem" title="Deshacer">↩</button></div>`;
+    log.innerHTML=[...G.todaySales].reverse().map(s=>{
+      const name=escapeHTML(s.name||s.product||'');
+      const rev=s.revenue||s.total||0;
+      return `<div class="sale-item"><span class="s-name">${name}</span><span class="s-qty">×${s.qty} ${escapeHTML(s.unit||'u')}</span><span class="s-total">+${fmt(rev)}</span><button onclick="undoSale('${s.id}')" style="background:none;border:1px solid #e57373;color:#e57373;border-radius:6px;padding:2px 8px;font-size:0.72rem;cursor:pointer;margin-left:0.5rem" title="Deshacer">↩</button></div>`;
     }).join('');
   } else {
     log.innerHTML='<p style="color:var(--muted);font-size:0.9rem">Aún no hay ventas hoy.</p>';
@@ -1434,21 +1683,21 @@ function renderInventory(){
 }
 
 function renderStats(){
-  const ts=G.sales.reduce((a,s)=>a+s.total,0)+G.todayIncome;
-  const te=G.history.reduce((a,h)=>a+h.expense,0)+G.expenses;
-  const profit=ts-te;
+  const m=getFinancialMetrics();
+  const catCount=G.products.length;
+  const stockRefs=G.products.filter(p=>p.stock>0).length;
   document.getElementById('statGrid').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Dinero disponible</div><div class="stat-value">${fmtK(G.capital)}</div><div class="stat-sub">En tu negocio ahora</div></div>
-    <div class="stat-card"><div class="stat-label">Total vendido</div><div class="stat-value">${fmtK(ts)}</div><div class="stat-sub">${G.sales.length} ventas realizadas</div></div>
-    <div class="stat-card"><div class="stat-label">Ventas de hoy</div><div class="stat-value">${fmtK(G.todayIncome)}</div><div class="stat-sub">Día ${G.day}</div></div>
-    <div class="stat-card"><div class="stat-label">Productos disponibles</div><div class="stat-value">${G.products.reduce((a,p)=>a+p.stock,0)}</div><div class="stat-sub">en tu inventario</div></div>
-    <div class="stat-card"><div class="stat-label">Días simulados</div><div class="stat-value">${G.day}</div><div class="stat-sub">simulado</div></div>
-    <div class="stat-card"><div class="stat-icon">${profit>=0?'✅':'🔴'}</div><div class="stat-label">Ganancia del negocio</div><div class="stat-value">${fmtK(profit)}</div><div class="${profit>=0?'stat-up':'stat-down'}">${profit>=0?'▲ Estás ganando':'▼ Estás perdiendo'}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Dinero disponible</div><div class="stat-value">${fmtK(m.cash)}</div><div class="stat-sub">En caja ahora</div></div>
+    <div class="stat-card"><div class="stat-label">Total vendido</div><div class="stat-value">${fmtK(m.totalRevenue)}</div><div class="stat-sub">${m.totalSalesCount} ventas</div></div>
+    <div class="stat-card"><div class="stat-label">Ventas de hoy</div><div class="stat-value">${fmtK(m.todayRevenue)}</div><div class="stat-sub">Día ${m.currentDay} — en curso</div></div>
+    <div class="stat-card"><div class="stat-label">Catálogo</div><div class="stat-value">${catCount}</div><div class="stat-sub">${stockRefs} con stock disponible</div></div>
+    <div class="stat-card"><div class="stat-label">Día actual / Días cerrados</div><div class="stat-value">${m.currentDay}</div><div class="stat-sub">${m.daysClosed} días cerrados</div></div>
+    <div class="stat-card"><div class="stat-label">Ganancia del negocio</div><div class="stat-value" style="color:${m.netProfit>=0?'var(--teal)':'#e57373'}">${fmtK(m.netProfit)}</div><div class="${m.netProfit>=0?'stat-up':'stat-down'}">${m.netProfit>=0?'▲ Estás ganando':'▼ Estás perdiendo'}</div></div>`;
 }
 
 function renderAlerts(){
   const a=[];
-  if(!G.expenses||G.expenses===0) a.push(`<div class="alert alert-warn">Recuerda: No has configurado tus gastos fijos diarios. Ve a <strong>Inventario → Configurar gastos fijos</strong> para agregarlos. Si aún no sabes cuánto gastas, puedes hacerlo después.</div>`);
+  if(G.expenses===undefined||G.expenses===null) a.push(`<div class="alert alert-warn">Recuerda: No has configurado tus gastos fijos diarios. Ve a Inventario para configurarlos.</div>`);
   G.products.forEach(p=>{ if(p.stock<5) a.push(`<div class="alert alert-warn">— ${p.name}</strong> — solo ${p.stock} ${p.unit||'unidades'} disponibles</div>`); });
   if(G.capital<50000) a.push(`<div class="alert alert-warn">Capital bajo (${fmt(G.capital)}) — revisa tus gastos</div>`);
   if(!a.length) a.push(`<div class="alert alert-info">Tu negocio opera sin problemas hoy</div>`);
@@ -1456,15 +1705,17 @@ function renderAlerts(){
 }
 
 function renderChecklist(){
-  const hasSale=G.sales.length>0;
-  const hasBuy=G.history.length>0;
-  const hasReport=G.sales.length>=5;
+  if(!G.activity) G.activity={};
+  const hasSale=(G.sales&&G.sales.length>0)||G.activity.firstSaleCompleted;
+  const hasDayClosed=(G.history&&G.history.length>0)||G.activity.firstDayClosed;
+  const hasReport=G.activity.reportGenerated===true;
+  const hasRestock=(G.purchases&&G.purchases.length>0)||G.activity.firstRestockCompleted;
   const items=[
     {label:'Elegiste un negocio',done:true},
-    {label:'Registraste una venta',done:hasSale},
-    {label:'Pasaste al día siguiente',done:hasBuy},
-    {label:'Revisaste el dashboard',done:true},
-    {label:'Generaste un reporte',done:hasReport},
+    {label:'Registraste tu primera venta',done:!!hasSale},
+    {label:'Cerraste el primer día',done:!!hasDayClosed},
+    {label:'Repusiste inventario',done:!!hasRestock},
+    {label:'Descargaste un reporte',done:!!hasReport},
   ];
   const allDone=items.every(i=>i.done);
   if(allDone){ document.getElementById('checklistBox').innerHTML=''; return; }
@@ -1493,15 +1744,14 @@ function renderCharts(){
 }
 
 function renderFinStats(){
-  const ts=G.sales.reduce((a,s)=>a+s.total,0)+G.todayIncome;
-  const te=G.history.reduce((a,h)=>a+h.expense,0)+G.expenses;
-  const profit=ts-te;
-  const roi=te>0?((profit/te)*100).toFixed(1):0;
+  const m=getFinancialMetrics();
   document.getElementById('finGrid').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Todo lo que has vendido</div><div class="stat-value">${fmtK(ts)}</div><div class="stat-sub">Total ventas</div></div>
-    <div class="stat-card"><div class="stat-label">Lo que has gastado</div><div class="stat-value">${fmtK(te)}</div><div class="stat-sub">Gastos del negocio</div></div>
-    <div class="stat-card"><div class="stat-label">Ganancia del negocio</div><div class="stat-value" style="color:${profit>=0?'var(--teal)':'#e57373'}">${fmtK(profit)}</div><div class="stat-sub">Lo que te queda después de gastos</div></div>
-    <div class="stat-card"><div class="stat-label">¿Qué tan rentable eres?</div><div class="stat-value">${roi}%</div><div class="stat-sub">Por cada peso gastado, esto ganas</div></div>`;
+    <div class="stat-card"><div class="stat-label">Ingresos totales</div><div class="stat-value">${fmtK(m.totalRevenue)}</div><div class="stat-sub">Todo lo que has vendido</div></div>
+    <div class="stat-card"><div class="stat-label">Costo de lo vendido</div><div class="stat-value">${fmtK(m.totalCOGS)}</div><div class="stat-sub">Costo de productos vendidos</div></div>
+    <div class="stat-card"><div class="stat-label">Utilidad bruta</div><div class="stat-value" style="color:${m.grossProfit>=0?'var(--teal)':'#e57373'}">${fmtK(m.grossProfit)}</div><div class="stat-sub">Margen bruto: ${m.grossMargin}%</div></div>
+    <div class="stat-card"><div class="stat-label">Gastos operativos</div><div class="stat-value">${fmtK(m.totalOperatingExpenses)}</div><div class="stat-sub">Solo días ya cerrados</div></div>
+    <div class="stat-card"><div class="stat-label">Utilidad neta</div><div class="stat-value" style="color:${m.netProfit>=0?'var(--teal)':'#e57373'}">${fmtK(m.netProfit)}</div><div class="stat-sub">Margen neto: ${m.netMargin}%</div></div>
+    <div class="stat-card"><div class="stat-label">ROI sobre capital inicial</div><div class="stat-value">${m.roi}%</div><div class="stat-sub">Retorno sobre tu inversión inicial</div></div>`;
   const ctx=document.getElementById('finChart').getContext('2d');
   if(finChartInst) finChartInst.destroy();
   const labels=G.history.map(h=>'Día '+h.day);
@@ -1672,41 +1922,76 @@ function setPeriod(days,btn){
 }
 
 function getSalesInPeriod(){
-  const maxDay=G.day;
-  const minDay=Math.max(1,maxDay-reportPeriod);
-  return G.sales.filter(s=>s.day>=minDay);
+  if(reportPeriod>=9999) return [...G.sales];
+  const endDay=G.day;
+  const startDay=Math.max(1,endDay-reportPeriod+1);
+  return G.sales.filter(s=>s.day>=startDay&&s.day<=endDay);
 }
 
 function renderReportes(){
   const sales=getSalesInPeriod();
-  const totalIncome=sales.reduce((a,s)=>a+s.total,0);
-  const daysInPeriod=Math.min(reportPeriod,G.history.length);
-  const totalExpenses=daysInPeriod*(G.expenses||30000);
-  const profit=totalIncome-totalExpenses;
+  const endDay=G.day;
+  const startDay=reportPeriod>=9999?1:Math.max(1,endDay-reportPeriod+1);
+  // Gastos usando historial real (no recalcular con valor actual)
+  const periodHistory=G.history.filter(h=>h.day>=startDay&&h.day<=endDay);
+  const totalIncome=sales.reduce((a,s)=>a+(s.revenue||s.total||0),0);
+  const totalCOGS=sales.reduce((a,s)=>a+(s.cogs||(s.unitCost||0)*(s.qty||0)),0);
+  const totalExpenses=periodHistory.reduce((a,h)=>a+(h.operatingExpenses||h.expense||0),0);
+  const grossProfit=totalIncome-totalCOGS;
+  const netProfit=grossProfit-totalExpenses;
   document.getElementById('reportSummary').innerHTML=`
     <div class="report-sum-card"><div class="rs-label">Ingresos</div><div class="rs-value">${fmtK(totalIncome)}</div></div>
-    <div class="report-sum-card"><div class="rs-label">Gastos</div><div class="rs-value">${fmtK(totalExpenses)}</div></div>
-    <div class="report-sum-card"><div class="rs-label">Utilidad</div><div class="rs-value">${fmtK(profit)}</div></div>
+    <div class="report-sum-card"><div class="rs-label">Costo de ventas</div><div class="rs-value">${fmtK(totalCOGS)}</div></div>
+    <div class="report-sum-card"><div class="rs-label">Utilidad bruta</div><div class="rs-value">${fmtK(grossProfit)}</div></div>
+    <div class="report-sum-card"><div class="rs-label">Gastos operativos</div><div class="rs-value">${fmtK(totalExpenses)}</div></div>
+    <div class="report-sum-card"><div class="rs-label">Utilidad neta</div><div class="rs-value" style="color:${netProfit>=0?'var(--teal)':'#e57373'}">${fmtK(netProfit)}</div></div>
     <div class="report-sum-card"><div class="rs-label">Ventas realizadas</div><div class="rs-value">${sales.length}</div></div>`;
-  document.getElementById('reportTable').innerHTML=`<thead><tr><th>Día</th><th>Producto</th><th>Cantidad</th><th>Total</th></tr></thead><tbody>${sales.length?sales.map(s=>`<tr><td>Día ${s.day}</td><td>${s.product}</td><td>${s.qty}</td><td>${fmt(s.total)}</td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#999;padding:1.5rem">No hay ventas en este período</td></tr>'}</tbody>`;
+  document.getElementById('reportTable').innerHTML=`<thead><tr><th>Día</th><th>Producto</th><th>Cant.</th><th>Ingresos</th><th>Costo</th><th>Utilidad bruta</th></tr></thead><tbody>${sales.length?sales.map(s=>{
+    const rev=s.revenue||s.total||0;
+    const cgs=s.cogs||(s.unitCost||0)*(s.qty||0);
+    const gp=rev-cgs;
+    return `<tr><td>Día ${s.day}</td><td>${escapeHTML(s.product||s.name||'')}</td><td>${s.qty}</td><td>${fmt(rev)}</td><td>${fmt(cgs)}</td><td style="color:${gp>=0?'var(--teal)':'#e57373'}">${fmt(gp)}</td></tr>`;
+  }).join(''):'<tr><td colspan="6" style="text-align:center;color:#999;padding:1.5rem">No hay ventas en este período</td></tr>'}</tbody>`;
 }
 
+function csvEscape(val){
+  const s=String(val===null||val===undefined?'':val);
+  if(s.includes(',')||s.includes('"')||s.includes('\n')) return '"'+s.replace(/"/g,'""')+'"';
+  return s;
+}
 function downloadCSV(){
   const sales=getSalesInPeriod();
-  if(!sales.length){ toast('⚠️ No hay datos para exportar'); return; }
-  const header='Día,Producto,Cantidad,Total\n';
-  const rows=sales.map(s=>`${s.day},${s.product},${s.qty},${s.total}`).join('\n');
-  const blob=new Blob([header+rows],{type:'text/csv;charset=utf-8;'});
+  if(!sales.length){ toast('No hay datos para exportar en este período'); return; }
+  const bom='\uFEFF'; // UTF-8 BOM para Excel
+  const header='Día,Producto,Cantidad,Unidad,Ingresos,Costo ventas,Utilidad bruta\n';
+  const rows=sales.map(s=>{
+    const rev=s.revenue||s.total||0;
+    const cogs=s.cogs||(s.unitCost||0)*(s.qty||0);
+    const gp=rev-cogs;
+    return [s.day,csvEscape(s.product||s.name||''),s.qty,csvEscape(s.unit||'unidad'),rev,cogs,gp].join(',');
+  }).join('\n');
+  const blob=new Blob([bom+header+rows],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a'); a.href=url; a.download=`bizworld_reporte_${G.type}.csv`; a.click();
-  toast('✅ Reporte CSV descargado');
+  const a=document.createElement('a'); a.href=url;
+  a.download=`bizworld_reporte_${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  if(!G.activity) G.activity={};
+  G.activity.reportGenerated=true;
+  saveG();
+  toast('Reporte CSV descargado');
 }
 
 function downloadPDF(){
   const sales=getSalesInPeriod();
   const totalIncome=sales.reduce((a,s)=>a+s.total,0);
   const daysInPeriod=Math.min(reportPeriod,G.history.length);
-  const totalExpenses=daysInPeriod*(G.expenses||0);
+  // Usar gastos históricos reales (no recalcular con valor actual)
+  const periodHistory=G.history.filter(h=>{
+    const endDay=G.day;
+    const startDay=reportPeriod>=9999?1:Math.max(1,endDay-reportPeriod+1);
+    return h.day>=startDay&&h.day<=endDay;
+  });
+  const totalExpenses=periodHistory.reduce((a,h)=>a+(h.operatingExpenses||h.expense||0),0);
   const profit=totalIncome-totalExpenses;
   const roi=totalExpenses>0?((profit/totalExpenses)*100).toFixed(1):0;
   const bizName=G._bizDef?.name||BUSINESSES[G.type]?.name||G.type||'Mi negocio';
@@ -1845,11 +2130,14 @@ function downloadPDF(){
 </body>
 </html>`;
 
-  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana. Permite ventanas emergentes e intenta de nuevo.'); return; }
   w.document.write(html);
   w.document.close();
   setTimeout(()=>w.print(), 500);
-  toast('Reporte PDF generado');
+  if(!G.activity) G.activity={};
+  G.activity.reportGenerated=true;
+  saveG();
+  toast('Reporte PDF generado — guárdalo como PDF desde el diálogo de impresión');
 }
 
 // ══════════════════ LOGROS ══════════════════
@@ -1858,7 +2146,7 @@ const ACHIEVEMENTS=[
   {id:'five_sales',icon:'💰',name:'Vendedor activo',desc:'Registra 5 ventas',check:()=>G.sales.length>=5},
   {id:'ten_days',icon:'📅',name:'10 días simulados',desc:'Llega al día 10',check:()=>G.day>=10},
   {id:'million',icon:'🏆',name:'Primer millón',desc:'Alcanza $1.000.000 en ventas',check:()=>G.sales.reduce((a,s)=>a+s.total,0)>=1000000},
-  {id:'restock',icon:'📦',name:'Gestor de stock',desc:'Repone inventario al menos una vez',check:()=>false},
+  {id:'restock',icon:'📦',name:'Gestor de stock',desc:'Repone inventario al menos una vez',check:()=>(G.purchases&&G.purchases.length>0)||(G.activity&&G.activity.firstRestockCompleted===true)},
   {id:'report',icon:'📋',name:'Analista',desc:'Genera tu primer reporte',check:()=>G.sales.length>=5},
   {id:'no_debt',icon:'✅',name:'En positivo',desc:'Mantén utilidad positiva 3 días',check:()=>G.history.filter(h=>h.profit>0).length>=3},
   {id:'five_days',icon:'⭐',name:'5 días consecutivos',desc:'Simula 5 días',check:()=>G.day>=5},
@@ -1899,12 +2187,14 @@ function sendChat(){
 
 function getBotResponse(msg){
   const m=msg.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-  const ts=G.sales?G.sales.reduce((a,s)=>a+s.total,0):0;
-  const te=G.history?G.history.reduce((a,h)=>a+h.expense,0):0;
-  const profit=ts-te;
+  // Usar métricas centrales para consistencia con Dashboard y Resultados
+  const met=G.type?getFinancialMetrics():{cash:0,totalRevenue:0,todayRevenue:0,netProfit:0,totalOperatingExpenses:0,totalSalesCount:0,roi:0};
+  const ts=met.totalRevenue;
+  const te=met.totalOperatingExpenses;
+  const profit=met.netProfit;
   const negocio=G._bizDef?.name||G.type||'tu negocio';
-  const capital=G.capital||0;
-  const hoy=G.todayIncome||0;
+  const capital=met.cash;
+  const hoy=met.todayRevenue;
   const bajo=G.products?.filter(p=>p.stock<5)||[];
 
   // Saludos
@@ -2108,6 +2398,8 @@ if(document.readyState==='loading'){
   initEvents();
 }
 window.undoSale=undoSale; window.continueBusiness=continueBusiness; window.deleteBusiness=deleteBusiness;
+window.getFinancialMetrics=getFinancialMetrics; window.getPeriodMetrics=getPeriodMetrics;
+window.ensureGameState=ensureGameState; window.escapeHTML=escapeHTML; window.genId=genId;
 window.toggleUserMenu=toggleUserMenu;
 window.showLogin=showLogin; window.showRegister=showRegister;
 window.cleanOldKeys=cleanOldKeys; window.showLanding=showLanding; window.showOnboarding=showOnboarding;
