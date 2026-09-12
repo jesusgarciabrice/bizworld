@@ -618,19 +618,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
     <p id="expenseHint" style="font-size:0.8rem;color:var(--teal);margin-bottom:1rem;display:none"></p>
 
-    <div class="sec-title" style="font-size:0.95rem;margin-top:0.2rem;margin-bottom:0.6rem">💰 Inversión inicial y gastos <span style="color:var(--muted);font-weight:400;font-size:0.75rem">(opcional — puedes configurarlo después desde Inventario)</span></div>
+    <div class="sec-title" style="font-size:0.95rem;margin-top:0.2rem;margin-bottom:0.6rem">🏬 ¿Tu negocio tiene local físico? Agrega su inversión y gastos <span style="color:var(--muted);font-weight:400;font-size:0.75rem">(opcional — bórralos si no aplica)</span></div>
 
     <div class="expense-block">
-      <label>🔧 Gastos únicos de inversión
-        <span>Máquinas, equipos, adecuaciones, muebles. Se descuentan <strong>una sola vez</strong> de tu capital inicial.</span>
+      <label>🔧 Gastos únicos de montaje
+        <span>Máquinas, equipos, adecuaciones, muebles del local. Se compran <strong>una sola vez</strong> y se descuentan de tu capital inicial (no se repiten cada mes).</span>
       </label>
       <div id="customExpensesOnce"></div>
       <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('once')">+ Agregar gasto único</button>
     </div>
 
     <div class="expense-block">
-      <label>🏠 Gastos fijos mensuales
-        <span>Arriendo, servicios, internet, nómina. Se dividen entre 30 para calcular tu gasto fijo diario.</span>
+      <label>🏠 Gastos fijos mensuales del local
+        <span>Arriendo, servicios (agua/luz/gas), internet o telefonía, nómina. Se dividen entre 30 para calcular tu gasto fijo diario automáticamente.</span>
       </label>
       <div id="customExpensesMonthly"></div>
       <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('monthly')">+ Agregar gasto mensual</button>
@@ -1475,6 +1475,11 @@ function openCustomModal(){
   document.getElementById('customExpensesOnce').innerHTML='';
   document.getElementById('customExpensesMonthly').innerHTML='';
   document.getElementById('customExpensesVariable').innerHTML='';
+  // Precargamos ejemplos típicos de "local físico" para que se note la opción de una vez
+  addExpenseRow('once','Máquinas / equipos / adecuación del local','');
+  addExpenseRow('monthly','Arriendo del local','');
+  addExpenseRow('monthly','Servicios (agua, luz, gas)','');
+  addExpenseRow('monthly','Internet / telefonía','');
   updateExpenseSummary();
 }
 function closeCustomModal(){ document.getElementById('customModal').classList.remove('open'); }
