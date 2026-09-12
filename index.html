@@ -222,6 +222,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .product-row input:focus,.product-row select:focus{border-color:var(--teal);}
 .product-row-header{display:grid;grid-template-columns:2fr 1fr 1fr 70px 90px 28px;gap:0.4rem;margin-bottom:0.3rem;}
 .product-row-header span{font-size:0.7rem;color:var(--muted);font-weight:500;}
+.expense-block{margin-bottom:1.1rem;padding:0.9rem;background:#fafbfc;border:1.5px solid var(--border-input);border-radius:12px;}
+.expense-block>label{display:block;font-weight:700;font-size:0.85rem;color:var(--navy);margin-bottom:0.2rem;}
+.expense-block>label span{display:block;font-weight:400;font-size:0.75rem;color:var(--muted);margin-top:0.15rem;margin-bottom:0.6rem;}
+.expense-row{display:grid;grid-template-columns:2fr 1fr 28px;gap:0.4rem;align-items:center;margin-bottom:0.5rem;}
+.expense-row input{width:100%;padding:0.45rem 0.5rem;border:1.5px solid var(--border-input);border-radius:8px;font-size:0.8rem;font-family:'DM Sans',sans-serif;outline:none;min-width:0;}
+.expense-row input:focus{border-color:var(--teal);}
 
 /* ── TOOLTIPS ── */
 .tooltip-wrap{position:relative;display:inline-flex;align-items:center;gap:0.3rem;}
@@ -608,13 +614,38 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
     <div class="form-group" style="margin-bottom:1rem">
       <label>Capital inicial ($)</label>
-      <input type="number" id="customCapital" placeholder="500000" value="500000">
-    </div>
-    <div class="form-group" style="margin-bottom:0.3rem">
-      <label>Gastos fijos diarios ($) <span style="color:var(--muted);font-weight:400">(opcional)</span></label>
-      <input type="number" id="customExpenses" placeholder="Ej: 30000 — déjalo en 0 si no sabes aún" value="0">
+      <input type="number" id="customCapital" placeholder="500000" value="500000" oninput="updateExpenseSummary()">
     </div>
     <p id="expenseHint" style="font-size:0.8rem;color:var(--teal);margin-bottom:1rem;display:none"></p>
+
+    <div class="sec-title" style="font-size:0.95rem;margin-top:0.2rem;margin-bottom:0.6rem">💰 Inversión inicial y gastos <span style="color:var(--muted);font-weight:400;font-size:0.75rem">(opcional — puedes configurarlo después desde Inventario)</span></div>
+
+    <div class="expense-block">
+      <label>🔧 Gastos únicos de inversión
+        <span>Máquinas, equipos, adecuaciones, muebles. Se descuentan <strong>una sola vez</strong> de tu capital inicial.</span>
+      </label>
+      <div id="customExpensesOnce"></div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('once')">+ Agregar gasto único</button>
+    </div>
+
+    <div class="expense-block">
+      <label>🏠 Gastos fijos mensuales
+        <span>Arriendo, servicios, internet, nómina. Se dividen entre 30 para calcular tu gasto fijo diario.</span>
+      </label>
+      <div id="customExpensesMonthly"></div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('monthly')">+ Agregar gasto mensual</button>
+    </div>
+
+    <div class="expense-block">
+      <label>📦 Gastos variables <span style="display:inline;margin:0">(opcional)</span>
+        <span>Materia prima, empaques y otros insumos que no pusiste como costo de producto. También se dividen entre 30.</span>
+      </label>
+      <div id="customExpensesVariable"></div>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('variable')">+ Agregar gasto variable</button>
+    </div>
+
+    <div id="expenseSummary" class="chart-card" style="margin-bottom:1.2rem"></div>
+
     <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.8rem">Agrega tus productos o servicios. <strong>Precio</strong> = lo que le cobras al cliente. <strong>Costo</strong> = lo que te costó a ti.</p>
     <div id="customProducts"></div>
     <button class="btn btn-outline btn-sm" onclick="addProductRow()" style="margin-bottom:1.2rem">+ Agregar producto</button>
@@ -910,16 +941,17 @@ function suggestExpenses(tipo){
     {keys:['papeleria','libreria'],val:25000,label:'Papelería'},
   ];
   const hint=document.getElementById('expenseHint');
-  const expInput=document.getElementById('customExpenses');
   const match=sugerencias.find(s=>s.keys.some(k=>t.includes(k)));
+  const monthlyContainer=document.getElementById('customExpensesMonthly');
   if(match){
-    hint.textContent=`💡 Para una ${match.label}, el gasto estimado es $${match.val.toLocaleString('es-CO')}/día. Puedes ajustarlo.`;
+    hint.textContent=`💡 Para una ${match.label}, el gasto fijo estimado es $${match.val.toLocaleString('es-CO')}/día (~$${(match.val*30).toLocaleString('es-CO')}/mes). Te agregamos un gasto mensual sugerido — puedes ajustarlo o borrarlo.`;
     hint.style.display='block';
-    expInput.value=match.val;
+    if(monthlyContainer && monthlyContainer.children.length===0){
+      addExpenseRow('monthly',`Estimado para ${match.label}`,match.val*30);
+    }
   } else if(t.length>2){
-    hint.textContent='💡 No tenemos estimación para este tipo. Ingresa tus gastos o déjalo en 0 y configúralo después desde Inventario.';
+    hint.textContent='💡 No tenemos estimación para este tipo. Agrega tus gastos manualmente o déjalo en 0 y configúralo después desde Inventario.';
     hint.style.display='block';
-    expInput.value=0;
   } else {
     hint.style.display='none';
   }
@@ -1440,6 +1472,10 @@ function openCustomModal(){
       <span></span>
     </div>`;
   addProductRow(); addProductRow(); addProductRow();
+  document.getElementById('customExpensesOnce').innerHTML='';
+  document.getElementById('customExpensesMonthly').innerHTML='';
+  document.getElementById('customExpensesVariable').innerHTML='';
+  updateExpenseSummary();
 }
 function closeCustomModal(){ document.getElementById('customModal').classList.remove('open'); }
 
@@ -1468,11 +1504,60 @@ function addProductRow(){
   document.getElementById('customProducts').appendChild(div);
 }
 
+const EXPENSE_PLACEHOLDERS={
+  once:{name:'Ej: Nevera, mostrador, adecuación...'},
+  monthly:{name:'Ej: Arriendo, internet, nómina...'},
+  variable:{name:'Ej: Materia prima, empaques...'}
+};
+function addExpenseRow(kind,name,amount){
+  const containerId=kind==='once'?'customExpensesOnce':kind==='monthly'?'customExpensesMonthly':'customExpensesVariable';
+  const ph=EXPENSE_PLACEHOLDERS[kind]||EXPENSE_PLACEHOLDERS.once;
+  const div=document.createElement('div');
+  div.className='expense-row';
+  div.innerHTML=`
+    <input placeholder="${ph.name}" class="exp-name" value="${name?escapeHTML(name):''}">
+    <input type="number" placeholder="$" class="exp-amount" value="${amount||''}" oninput="updateExpenseSummary()">
+    <button onclick="this.parentNode.remove();updateExpenseSummary()" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:1rem;padding:0">✕</button>`;
+  document.getElementById(containerId).appendChild(div);
+  updateExpenseSummary();
+}
+function getExpenseRows(kind){
+  const containerId=kind==='once'?'customExpensesOnce':kind==='monthly'?'customExpensesMonthly':'customExpensesVariable';
+  const rows=document.querySelectorAll('#'+containerId+' .expense-row');
+  const items=[];
+  rows.forEach(r=>{
+    const n=r.querySelector('.exp-name').value.trim();
+    const a=parseInt(r.querySelector('.exp-amount').value)||0;
+    if(n||a) items.push({name:n||'Gasto sin nombre',amount:a});
+  });
+  return items;
+}
+function updateExpenseSummary(){
+  const el=document.getElementById('expenseSummary');
+  if(!el) return;
+  const once=getExpenseRows('once').reduce((a,i)=>a+i.amount,0);
+  const monthly=getExpenseRows('monthly').reduce((a,i)=>a+i.amount,0);
+  const variable=getExpenseRows('variable').reduce((a,i)=>a+i.amount,0);
+  const dailyFixed=Math.round((monthly+variable)/30);
+  const capital=parseInt(document.getElementById('customCapital')?.value)||0;
+  const capitalNeto=capital-once;
+  el.innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.8rem;font-size:0.82rem">
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gastos únicos</div><div style="font-weight:700;color:var(--navy)">${fmt(once)}</div></div>
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gastos mensuales</div><div style="font-weight:700;color:var(--navy)">${fmt(monthly)}</div></div>
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gastos variables</div><div style="font-weight:700;color:var(--navy)">${fmt(variable)}</div></div>
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gasto fijo diario</div><div style="font-weight:700;color:var(--teal)">${fmt(dailyFixed)}</div></div>
+    </div>
+    <div style="margin-top:0.6rem;font-size:0.8rem;color:${capitalNeto<0?'#c62828':'var(--muted)'}">
+      Capital inicial (${fmt(capital)}) − gastos únicos (${fmt(once)}) = <strong>${fmt(capitalNeto)}</strong> disponible para empezar a operar.
+      ${capitalNeto<0?'⚠️ Tu inversión inicial supera tu capital.':''}
+    </div>`;
+}
+
 function saveCustomBusiness(){
   const name=document.getElementById('customName').value.trim();
   const type=document.getElementById('customType').value.trim()||'negocio';
-  const capital=parseInt(document.getElementById('customCapital').value)||500000;
-  const expenses=parseInt(document.getElementById('customExpenses').value)||0;
+  const capitalDeclarado=parseInt(document.getElementById('customCapital').value)||500000;
   const rows=document.querySelectorAll('#customProducts .product-row');
   const products=[];
   rows.forEach((r,i)=>{
@@ -1485,10 +1570,23 @@ function saveCustomBusiness(){
   });
   if(!name){ toast('⚠️ Ponle un nombre a tu negocio'); return; }
   if(products.length===0){ toast('⚠️ Agrega al menos un producto'); return; }
+
+  const onceExpenses=getExpenseRows('once');
+  const monthlyExpenses=getExpenseRows('monthly');
+  const variableExpenses=getExpenseRows('variable');
+  const onceTotal=onceExpenses.reduce((a,i)=>a+i.amount,0);
+  const monthlyTotal=monthlyExpenses.reduce((a,i)=>a+i.amount,0);
+  const variableTotal=variableExpenses.reduce((a,i)=>a+i.amount,0);
+  const expenses=Math.round((monthlyTotal+variableTotal)/30); // gasto fijo diario
+  const capital=capitalDeclarado-onceTotal; // capital neto tras descontar la inversión única
+
+  if(capital<0 && !confirm(`Tu inversión inicial (${fmt(onceTotal)}) supera tu capital (${fmt(capitalDeclarado)}), así que empezarías con capital negativo (${fmt(capital)}).\n¿Quieres continuar de todos modos?`)) return;
+
   const customKey='custom_'+Date.now();
   G={type:customKey,day:1,capital,products,expenses,sales:[],purchases:[],history:[],todaySales:[],todayIncome:0,achievements:{},activity:{},projections:[],
     createdAt:new Date().toISOString(), capitalInicial:capital,
-    _bizDef:{name,icon:getBizIcon(type||name),type:type,capital,expenses,products}};
+    _bizDef:{name,icon:getBizIcon(type||name),type:type,capital,expenses,products,
+      capitalDeclarado,onceExpenses,monthlyExpenses,variableExpenses,onceTotal,monthlyTotal,variableTotal}};
   closeCustomModal();
   document.getElementById('landing').style.display='none';
   launchApp(`⚙️ ${name}`,`Bienvenido a tu negocio "${name}" ⚙️`);
@@ -1661,7 +1759,17 @@ function renderBizInfo(){
         <div style="font-weight:700;font-size:1.1rem;color:var(--navy)">${productos} productos</div>
         <div style="font-size:0.75rem;color:var(--muted);margin-top:0.2rem">Puedes agregar más desde Inventario</div>
       </div>
-    </div>`;
+    </div>
+    ${(bizDef.onceTotal||bizDef.monthlyTotal||bizDef.variableTotal)?`
+    <div style="margin-top:1.2rem;padding-top:1rem;border-top:1.5px dashed var(--border-input)">
+      <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.6rem">Desglose de tu inversión y gastos</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;font-size:0.85rem">
+        <div><div style="color:var(--muted);font-size:0.75rem">Capital declarado</div><div style="font-weight:700;color:var(--navy)">${fmt(bizDef.capitalDeclarado||capitalInicial)}</div></div>
+        <div><div style="color:var(--muted);font-size:0.75rem">Gastos únicos (equipos, etc.)</div><div style="font-weight:700;color:var(--navy)">${fmt(bizDef.onceTotal||0)}</div></div>
+        <div><div style="color:var(--muted);font-size:0.75rem">Gastos mensuales (÷30)</div><div style="font-weight:700;color:var(--navy)">${fmt(bizDef.monthlyTotal||0)}</div></div>
+        <div><div style="color:var(--muted);font-size:0.75rem">Gastos variables (÷30)</div><div style="font-weight:700;color:var(--navy)">${fmt(bizDef.variableTotal||0)}</div></div>
+      </div>
+    </div>`:''}`;
 }
 
 function updateTopDay(){ document.getElementById('topDay').textContent=`Día ${G.day}`; }
