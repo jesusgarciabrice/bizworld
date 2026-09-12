@@ -706,21 +706,24 @@ window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, si
 // Escuchar cambios de sesión
 onAuthStateChanged(auth, async (user)=>{
   if(user){
-    window.currentUser = {
+    const userData = {
       uid: user.uid,
       name: user.displayName || user.email.split('@')[0],
       email: user.email,
       avatar: (user.displayName || user.email)[0].toUpperCase()
     };
+    window.currentUser = userData;
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('registerScreen').style.display='none';
 
     // Limpiar claves viejas sin uid antes de mostrar
     if(window.cleanOldKeys) window.cleanOldKeys();
 
-    // Siempre mostrar la pantalla de selección al entrar
+    // Esperar que el script principal esté listo y sincronizar currentUser
     const tryShow=()=>{
-      if(window.showLanding){
+      if(window.showLanding && window.currentUser){
+        // Asegurar que la variable local del script principal también esté actualizada
+        if(window._syncCurrentUser) window._syncCurrentUser(userData);
         window.showLanding();
       } else { setTimeout(tryShow,100); }
     };
@@ -875,6 +878,12 @@ function getPeriodMetrics(fromDay, toDay){
 }
 
 
+// Sincronizar currentUser desde módulo Firebase al script principal
+window._syncCurrentUser = function(userData){
+  currentUser = userData;
+  window.currentUser = userData;
+};
+
 function togglePass(id, btn){
   const input=document.getElementById(id);
   const eyeOpen=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
@@ -1001,23 +1010,39 @@ function bizKey(type){ const uid=(window.currentUser||currentUser)?.uid||'demo';
 function lastKey(){ const uid=(window.currentUser||currentUser)?.uid||'demo'; return `bw_${uid}_last`; }
 
 async function saveG(){
-  if(!currentUser&&window.currentUser) currentUser=window.currentUser;
+  // Siempre sincronizar currentUser desde window
+  if(!currentUser && window.currentUser) currentUser=window.currentUser;
   if(!G.type||!currentUser) return;
-  localStorage.setItem(bizKey(G.type), JSON.stringify(G));
-  localStorage.setItem(lastKey(), G.type);
+  const key=bizKey(G.type);
+  try {
+    const data=JSON.stringify(G);
+    localStorage.setItem(key, data);
+    localStorage.setItem(lastKey(), G.type);
+  } catch(e) { console.error('localStorage save error:',e); }
   if(currentUser.uid!=='demo' && window._fbFns && window._fbDb){
     try{
       const fns=window._fbFns; const db=window._fbDb;
       await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_'+G.type), JSON.parse(JSON.stringify(G)));
       await fns.setDoc(fns.doc(db,'gameData',currentUser.uid+'_last'),{type:G.type});
-    }catch(e){}
+    }catch(e){ console.error('Firestore save error:',e); }
   }
 }
 
 function loadBusiness(type){
+  // Sincronizar currentUser desde window antes de leer
+  if(!currentUser && window.currentUser) currentUser=window.currentUser;
   if(!currentUser) return false;
-  const d=localStorage.getItem(bizKey(type));
-  if(d){ G=JSON.parse(d); return true; }
+  const key=bizKey(type);
+  const d=localStorage.getItem(key);
+  if(d){
+    try {
+      G=JSON.parse(d);
+      return true;
+    } catch(e) {
+      console.error('Error parsing business data for key',key,e);
+      return false;
+    }
+  }
   return false;
 }
 
@@ -1129,6 +1154,8 @@ function getBizIcon(tipo){
 }
 
 function renderAllBusinesses(){
+  // Sincronizar currentUser
+  if(!currentUser && window.currentUser) currentUser=window.currentUser;
   const grid=document.getElementById('allBizGrid');
   const title=document.getElementById('bizGridTitle');
   if(!grid) return;
@@ -1295,18 +1322,21 @@ function preloadDemo(type){
 }
 
 function startGame(type){
+  // Sincronizar currentUser ANTES de cualquier operación
+  if(!currentUser && window.currentUser) currentUser=window.currentUser;
   document.getElementById('landing').style.display='none';
   const b=BUSINESSES[type];
-  const uid=(window.currentUser||currentUser)?.uid;
+  const uid=currentUser?.uid;
   if(!loadBusiness(type)){
+    // Solo crear negocio nuevo si realmente no existe
     G={type,day:1,capital:b.capital,products:b.products.map(p=>({...p})),
       expenses:b.expenses,sales:[],purchases:[],history:[],todaySales:[],
       todayIncome:0,achievements:{},activity:{},projections:[],
       createdAt:new Date().toISOString(), capitalInicial:b.capital};
-    // Solo carga datos demo para usuarios demo
     if(uid==='demo') preloadDemo(type);
   }
   G=ensureGameState(G);
+  window.G=G;
   launchApp(b.icon+' '+b.name, `Bienvenido a tu negocio "${b.name}" ${b.icon}`);
 }
 
