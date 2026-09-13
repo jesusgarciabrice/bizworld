@@ -452,6 +452,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div class="form-row" id="buyFormRow"></div>
           <button class="btn btn-primary" onclick="buyStock()">📦 Confirmar compra</button>
         </div>
+        <div class="sec-title">Insumos operativos</div>
+        <div class="chart-card" style="margin-bottom:1.5rem">
+          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Cosas que tu negocio necesita para funcionar pero que no vendes directamente (cucharas, servilletas, bolsas, empaques...). A diferencia de los gastos fijos, estos NO se descuentan solos cada día: cuando se te acaben, dale a "Reponer" y se descuenta de tu capital en ese momento — como pasaría en la vida real.</p>
+          <div id="suppliesList"></div>
+          <div class="form-row" style="margin-top:0.6rem">
+            <div class="form-group"><label>Nombre del insumo</label><input type="text" id="newSupplyName" placeholder="Ej: Cucharas desechables x100"></div>
+            <div class="form-group" style="max-width:150px"><label>Costo de reposición ($)</label><input type="number" id="newSupplyCost" placeholder="25000"></div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="addSupply()">➕ Agregar insumo</button>
+        </div>
         <div class="sec-title">Agregar nuevo producto</div>
         <div class="chart-card" style="margin-bottom:1.5rem">
           <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Agrega productos o servicios nuevos a tu catálogo en cualquier momento.</p>
@@ -618,30 +628,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
     <p id="expenseHint" style="font-size:0.8rem;color:var(--teal);margin-bottom:1rem;display:none"></p>
 
-    <div class="sec-title" style="font-size:0.95rem;margin-top:0.2rem;margin-bottom:0.6rem">🏬 ¿Tu negocio tiene local físico? Agrega su inversión y gastos <span style="color:var(--muted);font-weight:400;font-size:0.75rem">(opcional — bórralos si no aplica)</span></div>
+    <div class="sec-title" style="font-size:0.95rem;margin-top:0.2rem;margin-bottom:0.6rem">🏬 ¿Tu negocio tiene local, máquinas o cosas que comprar? <span style="color:var(--muted);font-weight:400;font-size:0.75rem">(opcional — bórralo si no aplica)</span></div>
 
     <div class="expense-block">
-      <label>🔧 Gastos únicos de montaje
-        <span>Máquinas, equipos, adecuaciones, muebles del local. Se compran <strong>una sola vez</strong> y se descuentan de tu capital inicial (no se repiten cada mes).</span>
+      <label>🔧 Cosas que compras una sola vez
+        <span>Máquinas, muebles, herramientas, arreglos del local. Las compras una vez al empezar y no se repiten cada mes. Se restan de tu capital al crear el negocio.</span>
       </label>
       <div id="customExpensesOnce"></div>
-      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('once')">+ Agregar gasto único</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('once')">+ Agregar</button>
     </div>
 
     <div class="expense-block">
-      <label>🏠 Gastos fijos mensuales del local
-        <span>Arriendo, servicios (agua/luz/gas), internet o telefonía, nómina. Se dividen entre 30 para calcular tu gasto fijo diario automáticamente.</span>
+      <label>🏠 Cosas que pagas todos los meses
+        <span>Arriendo, agua, luz, internet, sueldos. Escribe cuánto pagas <strong>al mes</strong> y nosotros calculamos cuánto es por día (lo dividimos entre 30).</span>
       </label>
       <div id="customExpensesMonthly"></div>
-      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('monthly')">+ Agregar gasto mensual</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('monthly')">+ Agregar</button>
     </div>
 
     <div class="expense-block">
-      <label>📦 Gastos variables <span style="display:inline;margin:0">(opcional)</span>
-        <span>Materia prima, empaques y otros insumos que no pusiste como costo de producto. También se dividen entre 30.</span>
+      <label>📦 Cosas que se te acaban y hay que volver a comprar <span style="display:inline;margin:0">(opcional)</span>
+        <span>Materia prima, empaques, insumos que se gastan con el uso (ej: cucharas, bolsas, tornillos, shampoo para mascotas). Aquí compras la primera vez; cuando se te acaben durante la simulación, los repones desde "Inventario" y ahí sí se descuenta el gasto ese mismo día — no se reparte solo.</span>
       </label>
       <div id="customExpensesVariable"></div>
-      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('variable')">+ Agregar gasto variable</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addExpenseRow('variable')">+ Agregar</button>
     </div>
 
     <div id="expenseSummary" class="chart-card" style="margin-bottom:1.2rem"></div>
@@ -794,9 +804,11 @@ function ensureGameState(g){
   g.products   = Array.isArray(g.products)   ? g.products   : [];
   g.sales      = Array.isArray(g.sales)      ? g.sales      : [];
   g.purchases  = Array.isArray(g.purchases)  ? g.purchases  : [];
+  g.supplies   = Array.isArray(g.supplies)   ? g.supplies   : [];
   g.history    = Array.isArray(g.history)    ? g.history    : [];
   g.todaySales = Array.isArray(g.todaySales) ? g.todaySales : [];
   g.projections= Array.isArray(g.projections)? g.projections: [];
+  if(typeof g.todayExtraExpenses!=='number'||isNaN(g.todayExtraExpenses)) g.todayExtraExpenses=0;
   if(typeof g.achievements!=='object'||!g.achievements) g.achievements={};
   if(typeof g.activity!=='object'||!g.activity) g.activity={};
   if(!g.day||g.day<1) g.day=1;
@@ -939,18 +951,20 @@ function suggestExpenses(tipo){
     {keys:['ferreteri','construccion'],val:50000,label:'Ferretería'},
     {keys:['farmacia','drogueri'],val:55000,label:'Farmacia'},
     {keys:['papeleria','libreria'],val:25000,label:'Papelería'},
+    {keys:['llanta','neumatic','caucho'],val:70000,label:'Venta de llantas'},
+    {keys:['mascota','perro','veterinari','canin'],val:40000,label:'Peluquería canina'},
   ];
   const hint=document.getElementById('expenseHint');
   const match=sugerencias.find(s=>s.keys.some(k=>t.includes(k)));
   const monthlyContainer=document.getElementById('customExpensesMonthly');
   if(match){
-    hint.textContent=`💡 Para una ${match.label}, el gasto fijo estimado es $${match.val.toLocaleString('es-CO')}/día (~$${(match.val*30).toLocaleString('es-CO')}/mes). Te agregamos un gasto mensual sugerido — puedes ajustarlo o borrarlo.`;
+    hint.textContent=`💡 Para un negocio de tipo "${match.label}", un gasto mensual típico ronda los $${(match.val*30).toLocaleString('es-CO')}. Te agregamos una fila con ese valor — puedes cambiarla o borrarla.`;
     hint.style.display='block';
-    if(monthlyContainer && monthlyContainer.children.length===0){
-      addExpenseRow('monthly',`Estimado para ${match.label}`,match.val*30);
+    if(monthlyContainer && monthlyContainer.children.length<=3){
+      addExpenseRow('monthly',`Gasto estimado (${match.label})`,match.val*30);
     }
   } else if(t.length>2){
-    hint.textContent='💡 No tenemos estimación para este tipo. Agrega tus gastos manualmente o déjalo en 0 y configúralo después desde Inventario.';
+    hint.textContent='💡 No tenemos un ejemplo para este tipo de negocio. Agrega tus gastos a mano, o déjalo así y lo completas luego en Inventario.';
     hint.style.display='block';
   } else {
     hint.style.display='none';
@@ -1182,6 +1196,8 @@ function getBizIcon(tipo){
   if(t.includes('tienda')||t.includes('minimarket')||t.includes('abarrote')) return '🏪';
   if(t.includes('boutique')||t.includes('ropa')||t.includes('moda')) return '👗';
   if(t.includes('ferreteri')) return '🔧';
+  if(t.includes('llanta')||t.includes('neumatic')||t.includes('caucho')) return '🛞';
+  if(t.includes('mascota')||t.includes('perro')||t.includes('veterinari')||t.includes('canin')) return '🐶';
   if(t.includes('farmacia')||t.includes('drogueri')) return '💊';
   if(t.includes('papeleria')||t.includes('libreria')) return '📚';
   if(t.includes('panaderia')||t.includes('pasteleria')) return '🥐';
@@ -1475,11 +1491,11 @@ function openCustomModal(){
   document.getElementById('customExpensesOnce').innerHTML='';
   document.getElementById('customExpensesMonthly').innerHTML='';
   document.getElementById('customExpensesVariable').innerHTML='';
-  // Precargamos ejemplos típicos de "local físico" para que se note la opción de una vez
-  addExpenseRow('once','Máquinas / equipos / adecuación del local','');
+  // Precargamos ejemplos típicos para que se note la opción de una vez (sirve para cualquier tipo de negocio)
+  addExpenseRow('once','Máquinas, muebles o herramientas','');
   addExpenseRow('monthly','Arriendo del local','');
   addExpenseRow('monthly','Servicios (agua, luz, gas)','');
-  addExpenseRow('monthly','Internet / telefonía','');
+  addExpenseRow('monthly','Internet / celular','');
   updateExpenseSummary();
 }
 function closeCustomModal(){ document.getElementById('customModal').classList.remove('open'); }
@@ -1510,9 +1526,9 @@ function addProductRow(){
 }
 
 const EXPENSE_PLACEHOLDERS={
-  once:{name:'Ej: Nevera, mostrador, adecuación...'},
-  monthly:{name:'Ej: Arriendo, internet, nómina...'},
-  variable:{name:'Ej: Materia prima, empaques...'}
+  once:{name:'Ej: Máquina, mueble, herramienta, mostrador...'},
+  monthly:{name:'Ej: Arriendo, luz, agua, internet, sueldo...'},
+  variable:{name:'Ej: Materia prima, empaques, insumos...'}
 };
 function addExpenseRow(kind,name,amount){
   const containerId=kind==='once'?'customExpensesOnce':kind==='monthly'?'customExpensesMonthly':'customExpensesVariable';
@@ -1543,20 +1559,21 @@ function updateExpenseSummary(){
   const once=getExpenseRows('once').reduce((a,i)=>a+i.amount,0);
   const monthly=getExpenseRows('monthly').reduce((a,i)=>a+i.amount,0);
   const variable=getExpenseRows('variable').reduce((a,i)=>a+i.amount,0);
-  const dailyFixed=Math.round((monthly+variable)/30);
+  const dailyFixed=Math.round(monthly/30);
   const capital=parseInt(document.getElementById('customCapital')?.value)||0;
-  const capitalNeto=capital-once;
+  const capitalNeto=capital-once-variable;
   el.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.8rem;font-size:0.82rem">
-      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gastos únicos</div><div style="font-weight:700;color:var(--navy)">${fmt(once)}</div></div>
-      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gastos mensuales</div><div style="font-weight:700;color:var(--navy)">${fmt(monthly)}</div></div>
-      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gastos variables</div><div style="font-weight:700;color:var(--navy)">${fmt(variable)}</div></div>
-      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Gasto fijo diario</div><div style="font-weight:700;color:var(--teal)">${fmt(dailyFixed)}</div></div>
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Compra única (equipos)</div><div style="font-weight:700;color:var(--navy)">${fmt(once)}</div></div>
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Pago mensual (local)</div><div style="font-weight:700;color:var(--navy)">${fmt(monthly)}</div></div>
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Compra inicial (insumos)</div><div style="font-weight:700;color:var(--navy)">${fmt(variable)}</div></div>
+      <div><div style="color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px">Se te descuenta cada día</div><div style="font-weight:700;color:var(--teal)">${fmt(dailyFixed)}</div></div>
     </div>
     <div style="margin-top:0.6rem;font-size:0.8rem;color:${capitalNeto<0?'#c62828':'var(--muted)'}">
-      Capital inicial (${fmt(capital)}) − gastos únicos (${fmt(once)}) = <strong>${fmt(capitalNeto)}</strong> disponible para empezar a operar.
-      ${capitalNeto<0?'⚠️ Tu inversión inicial supera tu capital.':''}
-    </div>`;
+      Con lo que pusiste en capital (${fmt(capital)}), menos lo que compraste una sola vez y los insumos iniciales, te quedan <strong>${fmt(capitalNeto)}</strong> para empezar a vender.
+      ${capitalNeto<0?'⚠️ Estás gastando más de lo que tienes de capital.':''}
+    </div>
+    <div style="margin-top:0.4rem;font-size:0.75rem;color:var(--muted)">Los insumos que pongas en "se te acaban" no se descuentan solos cada día — solo cuando los repongas desde Inventario.</div>`;
 }
 
 function saveCustomBusiness(){
@@ -1601,9 +1618,11 @@ function saveCustomBusiness(){
 let _closingDay=false;
 function nextDay(){
   if(_closingDay) return; // Prevenir doble clic
-  const expenses=typeof G.expenses==='number'?G.expenses:0;
+  const fixedExpenses=typeof G.expenses==='number'?G.expenses:0;
+  const extraExpenses=typeof G.todayExtraExpenses==='number'?G.todayExtraExpenses:0;
+  const expenses=fixedExpenses+extraExpenses; // total del día para el reporte de ganancias
   if(G.todaySales.length===0){
-    if(!confirm(`No registraste ventas hoy.\nSi cierras el día se descontarán ${fmt(expenses)} de gastos fijos.\n¿Continuar?`)) return;
+    if(!confirm(`No registraste ventas hoy.\nSi cierras el día se descontarán ${fmt(fixedExpenses)} de gastos fijos.\n¿Continuar?`)) return;
   }
   _closingDay=true;
   // Calcular métricas del día a cerrar
@@ -1619,6 +1638,7 @@ function nextDay(){
     sales:JSON.parse(JSON.stringify(G.sales)),
     todaySales:JSON.parse(JSON.stringify(G.todaySales)),
     todayIncome:G.todayIncome,
+    todayExtraExpenses:G.todayExtraExpenses||0,
     purchases:JSON.parse(JSON.stringify(G.purchases||[]))
   });
   // Registrar en historial con modelo completo
@@ -1635,7 +1655,8 @@ function nextDay(){
     salesCount:G.todaySales.length,
     closedAt:new Date().toISOString()
   });
-  G.capital-=expenses;
+  G.capital-=fixedExpenses; // los gastos de insumos (extra) ya se descontaron al momento de comprarlos
+  G.todayExtraExpenses=0;
   G.day++;
   G.todaySales=[];
   G.todayIncome=0;
@@ -1644,7 +1665,7 @@ function nextDay(){
   updateTopDay(); checkAchievements(); saveG(); renderAll();
   const btn=document.getElementById('undoDayBtn');
   if(btn) btn.style.display='inline-flex';
-  toast(`Día ${G.day} iniciado. Se descontaron ${fmt(expenses)} de gastos.`);
+  toast(`Día ${G.day} iniciado. Se descontaron ${fmt(fixedExpenses)} de gastos fijos.`);
   setTimeout(()=>{ _closingDay=false; },1000);
 }
 
@@ -1654,6 +1675,7 @@ function undoDay(){
   G.day=snap.day; G.capital=snap.capital; G.history=snap.history;
   G.products=snap.products; G.sales=snap.sales;
   G.todaySales=snap.todaySales; G.todayIncome=snap.todayIncome;
+  G.todayExtraExpenses=snap.todayExtraExpenses||0;
   G._lastSnapshot=null;
   updateTopDay(); saveG(); renderAll();
   document.getElementById('undoDayBtn').style.display='none';
@@ -1854,6 +1876,58 @@ function buyStock(){
   toast(`Compra: ${qty} ${unit} × ${escapeHTML(prod.name)} por ${fmt(totalCost)}`);
 }
 
+// ══════════════════ INSUMOS OPERATIVOS (no vendibles: cucharas, empaques, etc.) ══════════════════
+function renderSupplies(){
+  const el=document.getElementById('suppliesList');
+  if(!el) return;
+  if(!G.supplies||G.supplies.length===0){
+    el.innerHTML='<p style="color:var(--muted);font-size:0.85rem">Aún no tienes insumos registrados. Agrega uno abajo (ej: cucharas, servilletas, empaques).</p>';
+    return;
+  }
+  el.innerHTML=G.supplies.map(s=>{
+    const last=s.lastDay?`Última compra: día ${s.lastDay}`:'Sin compras registradas aún';
+    return `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;padding:0.6rem;background:#fafbfc;border:1.5px solid var(--border-input);border-radius:10px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px"><strong>${escapeHTML(s.name)}</strong><div style="font-size:0.72rem;color:var(--muted)">${last}</div></div>
+      <input type="number" class="supply-amount" data-id="${s.id}" value="${s.amount}" style="width:110px;padding:0.4rem 0.5rem;border:1.5px solid var(--border-input);border-radius:8px;font-family:'DM Sans',sans-serif">
+      <button class="btn btn-primary btn-sm" onclick="restockSupply('${s.id}')">🔁 Reponer</button>
+      <button onclick="deleteSupply('${s.id}')" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:1rem;padding:0" title="Eliminar insumo">✕</button>
+    </div>`;
+  }).join('');
+}
+function addSupply(){
+  const name=document.getElementById('newSupplyName').value.trim();
+  const amount=parseInt(document.getElementById('newSupplyCost').value)||0;
+  if(!name){ toast('⚠️ Ponle un nombre al insumo'); return; }
+  if(!G.supplies) G.supplies=[];
+  G.supplies.push({id:genId(),name,amount,lastDay:null});
+  document.getElementById('newSupplyName').value='';
+  document.getElementById('newSupplyCost').value='';
+  saveG(); renderSupplies();
+  toast(`Insumo agregado: ${escapeHTML(name)}`);
+}
+function restockSupply(id){
+  const sup=(G.supplies||[]).find(s=>s.id===id);
+  if(!sup) return;
+  const input=document.querySelector(`.supply-amount[data-id="${id}"]`);
+  const amount=parseInt(input?.value)||sup.amount||0;
+  if(amount<=0){ toast('⚠️ Ingresa un costo válido'); return; }
+  if(G.capital<amount){ toast(`Capital insuficiente. Necesitas ${fmt(amount)} pero tienes ${fmt(G.capital)}`); return; }
+  G.capital=parseFloat((G.capital-amount).toFixed(2));
+  G.todayExtraExpenses=(G.todayExtraExpenses||0)+amount;
+  sup.amount=amount;
+  sup.lastDay=G.day;
+  if(!G.purchases) G.purchases=[];
+  G.purchases.push({id:genId(),day:G.day,type:'insumo',productName:sup.name,qty:1,unit:'lote',unitCost:amount,totalCost:amount,createdAt:new Date().toISOString()});
+  if(!G.activity) G.activity={};
+  G.activity.firstRestockCompleted=true;
+  checkAchievements(); saveG(); renderSupplies(); renderStats(); renderAlerts();
+  toast(`Compra registrada: ${escapeHTML(sup.name)} por ${fmt(amount)} (se refleja en tus gastos de hoy)`);
+}
+function deleteSupply(id){
+  G.supplies=(G.supplies||[]).filter(s=>s.id!==id);
+  saveG(); renderSupplies();
+}
+
 // ══════════════════ RENDER ══════════════════
 function renderSaleLog(){
   const log=document.getElementById('saleLog');
@@ -1875,6 +1949,7 @@ function renderInventory(){
     const unit=p.unit||'unidad';
     return `<tr><td><strong>${p.name}</strong></td><td class="${cls}">${p.stock}</td><td style="color:var(--muted);font-size:0.82rem">${unit}</td><td>${fmt(p.price)}</td><td>${fmt(p.cost)}</td><td style="color:var(--teal);font-weight:700">${m}%</td><td class="${cls}">${p.stock<5?'⚠️ Bajo':p.stock<10?'🟡 Medio':'✅ OK'}</td></tr>`;
   }).join('')}</tbody>`;
+  renderSupplies();
 }
 
 function renderStats(){
@@ -2467,8 +2542,12 @@ Aparece de inmediato en tu inventario y en la lista de productos para vender.`;
       :`Actualmente llevas ${fmt(Math.abs(profit))} de pérdida. Has vendido ${fmt(ts)} pero tus gastos acumulados son ${fmt(te)}. Intenta vender más o reducir los gastos fijos.`;
 
   // Gastos fijos
-  if(m.includes('gasto')||m.includes('fijo')||m.includes('costo'))
-    return `Tus gastos fijos son de ${fmt(G.expenses||0)} por día. Llevas ${fmt(te)} en gastos acumulados. Estos se descuentan automáticamente cada vez que cierras el día. Si quieres cambiarlos, ve a "Inventario" → "Configurar gastos fijos diarios".`;
+  if((m.includes('gasto')||m.includes('fijo')||m.includes('costo'))&&!m.includes('insumo')&&!m.includes('reponer')&&!m.includes('se acab'))
+    return `Tienes dos tipos de gastos: los fijos (arriendo, servicios, internet) que configuraste al crear tu negocio y se descuentan solos cada día — hoy son ${fmt(G.expenses||0)} — y los insumos (cosas que se te acaban, como materia prima o empaques), que solo se descuentan cuando tú das clic en "Reponer" desde Inventario. Llevas ${fmt(te)} en gastos acumulados en total.`;
+
+  // Insumos / reponer cosas que se acaban
+  if(m.includes('insumo')||m.includes('reponer')||m.includes('se acab')||m.includes('se me acabaron')||(m.includes('comprar')&&(m.includes('mas')||m.includes('otra vez'))))
+    return `Para los insumos que se te acaban (como materia prima, empaques o cualquier cosa que compraste al crear el negocio), ve a "Inventario" → "Insumos operativos". Ahí ves cada insumo con un botón "🔁 Reponer": al darle clic se descuenta el costo de tu capital en ese momento, tal como pasaría en la vida real. También puedes agregar insumos nuevos que no habías registrado antes.`;
 
   // Cerrar el día / avanzar día
   if(m.includes('cerrar el dia')||m.includes('avanzar')||m.includes('siguiente dia')||m.includes('pasar dia'))
