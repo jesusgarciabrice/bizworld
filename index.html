@@ -2547,6 +2547,7 @@ function downloadPDF(){
 </body>
 </html>`;
 
+  const w=window.open('','_blank');
   if(!w){ toast('El navegador bloqueó la ventana. Permite ventanas emergentes e intenta de nuevo.'); return; }
   w.document.write(html);
   w.document.close();
