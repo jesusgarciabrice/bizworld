@@ -545,6 +545,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <button class="period-btn" onclick="setPeriod(365,this)">1 año</button>
           <button class="period-btn" onclick="setPeriod(9999,this)">Todo</button>
         </div>
+        <div class="chart-card" style="margin-bottom:1rem">
+          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:0.8rem">O elige un rango de fechas exacto (con calendario) — usa la fecha real en que registraste cada venta o cerraste cada día:</p>
+          <div class="form-row" style="align-items:flex-end">
+            <div class="form-group"><label>Desde</label><input type="date" id="reportDateFrom" onchange="applyDateRange()"></div>
+            <div class="form-group"><label>Hasta</label><input type="date" id="reportDateTo" onchange="applyDateRange()"></div>
+            <button class="btn btn-outline btn-sm" onclick="clearDateRange()" style="margin-bottom:0">✕ Quitar rango</button>
+          </div>
+          <p id="dateRangeHint" style="font-size:0.78rem;color:var(--muted);margin-top:0.6rem"></p>
+        </div>
         <div class="report-summary" id="reportSummary"></div>
         <div class="chart-card" style="overflow-x:auto">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
@@ -2313,12 +2322,60 @@ function renderProjection(){
 // ══════════════════ REPORTES ══════════════════
 function setPeriod(days,btn){
   reportPeriod=days;
+  reportDateRange=null;
+  const fromEl=document.getElementById('reportDateFrom'), toEl=document.getElementById('reportDateTo');
+  if(fromEl) fromEl.value=''; if(toEl) toEl.value='';
+  const hint=document.getElementById('dateRangeHint'); if(hint) hint.textContent='';
   document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   renderReportes();
 }
 
+let reportDateRange=null;
+function applyDateRange(){
+  const from=document.getElementById('reportDateFrom').value;
+  const to=document.getElementById('reportDateTo').value;
+  if(!from||!to) return; // esperar a que se llenen ambas fechas
+  if(from>to){ toast('⚠️ La fecha "Desde" no puede ser después de "Hasta"'); return; }
+  reportDateRange={from,to};
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  const hint=document.getElementById('dateRangeHint');
+  if(hint) hint.textContent=`Mostrando el reporte del ${new Date(from+'T00:00:00').toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})} al ${new Date(to+'T00:00:00').toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})}.`;
+  renderReportes();
+}
+function clearDateRange(){
+  reportDateRange=null;
+  document.getElementById('reportDateFrom').value='';
+  document.getElementById('reportDateTo').value='';
+  const hint=document.getElementById('dateRangeHint'); if(hint) hint.textContent='';
+  const first=document.querySelector('.period-btn');
+  if(first) first.classList.add('active');
+  renderReportes();
+}
+
+function getHistoryInPeriod(){
+  if(reportDateRange){
+    const fromTs=new Date(reportDateRange.from+'T00:00:00').getTime();
+    const toTs=new Date(reportDateRange.to+'T23:59:59').getTime();
+    return G.history.filter(h=>{
+      const t=new Date(h.closedAt||0).getTime();
+      return t>=fromTs&&t<=toTs;
+    });
+  }
+  const endDay=G.day;
+  const startDay=reportPeriod>=9999?1:Math.max(1,endDay-reportPeriod+1);
+  return G.history.filter(h=>h.day>=startDay&&h.day<=endDay);
+}
+
 function getSalesInPeriod(){
+  if(reportDateRange){
+    const fromTs=new Date(reportDateRange.from+'T00:00:00').getTime();
+    const toTs=new Date(reportDateRange.to+'T23:59:59').getTime();
+    return G.sales.filter(s=>{
+      const t=new Date(s.createdAt||0).getTime();
+      return t>=fromTs&&t<=toTs;
+    });
+  }
   if(reportPeriod>=9999) return [...G.sales];
   const endDay=G.day;
   const startDay=Math.max(1,endDay-reportPeriod+1);
@@ -2341,10 +2398,7 @@ function reportCardHTML(key,label,value,valueColor,detailHTML){
 }
 function renderReportes(){
   const sales=getSalesInPeriod();
-  const endDay=G.day;
-  const startDay=reportPeriod>=9999?1:Math.max(1,endDay-reportPeriod+1);
-  // Gastos usando historial real (no recalcular con valor actual)
-  const periodHistory=G.history.filter(h=>h.day>=startDay&&h.day<=endDay);
+  const periodHistory=getHistoryInPeriod();
   const totalIncome=sales.reduce((a,s)=>a+(s.revenue||s.total||0),0);
   const totalCOGS=sales.reduce((a,s)=>a+(s.cogs||(s.unitCost||0)*(s.qty||0)),0);
   const totalExpenses=periodHistory.reduce((a,h)=>a+(h.operatingExpenses||h.expense||0),0);
@@ -2401,20 +2455,17 @@ function downloadCSV(){
 function downloadPDF(){
   const sales=getSalesInPeriod();
   const totalIncome=sales.reduce((a,s)=>a+s.total,0);
-  const daysInPeriod=Math.min(reportPeriod,G.history.length);
-  // Usar gastos históricos reales (no recalcular con valor actual)
-  const periodHistory=G.history.filter(h=>{
-    const endDay=G.day;
-    const startDay=reportPeriod>=9999?1:Math.max(1,endDay-reportPeriod+1);
-    return h.day>=startDay&&h.day<=endDay;
-  });
+  const periodHistory=getHistoryInPeriod();
+  const daysInPeriod=periodHistory.length;
   const totalExpenses=periodHistory.reduce((a,h)=>a+(h.operatingExpenses||h.expense||0),0);
   const profit=totalIncome-totalExpenses;
   const roi=totalExpenses>0?((profit/totalExpenses)*100).toFixed(1):0;
   const bizName=G._bizDef?.name||BUSINESSES[G.type]?.name||G.type||'Mi negocio';
   const created=G.createdAt?new Date(G.createdAt).toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'}):'No registrado';
   const capitalInicial=G.capitalInicial||G.capital||0;
-  const periodLabel=reportPeriod===9999?'Todo el tiempo':`Últimos ${reportPeriod} días`;
+  const periodLabel=reportDateRange
+    ?`Del ${new Date(reportDateRange.from+'T00:00:00').toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})} al ${new Date(reportDateRange.to+'T00:00:00').toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})}`
+    :(reportPeriod===9999?'Todo el tiempo':`Últimos ${reportPeriod} días`);
   const today=new Date().toLocaleDateString('es-CO',{year:'numeric',month:'long',day:'numeric'});
 
   // Agrupar ventas por producto
@@ -2499,7 +2550,7 @@ function downloadPDF(){
     <div class="summary-card">
       <div class="label">Gastos operativos</div>
       <div class="value">${fmt(totalExpenses)}</div>
-      <div class="sub">${daysInPeriod} días × ${fmt(G.expenses||0)}</div>
+      <div class="sub">${daysInPeriod} día(s) cerrados en este período</div>
     </div>
     <div class="summary-card">
       <div class="label">Utilidad neta</div>
