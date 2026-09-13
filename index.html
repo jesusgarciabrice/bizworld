@@ -181,7 +181,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .period-btn{padding:0.4rem 1rem;border-radius:99px;border:1.5px solid var(--border-input);background:white;color:var(--muted);font-size:0.82rem;cursor:pointer;transition:all 0.2s;font-family:'DM Sans',sans-serif;}
 .period-btn.active,.period-btn:hover{background:var(--teal);color:white;border-color:var(--teal);}
 .report-table{width:100%;border-collapse:collapse;font-size:0.85rem;}
-.report-table th{background:var(--navy);color:white;padding:0.7rem 1rem;text-align:left;font-size:0.75rem;letter-spacing:0.5px;}
+.report-table th{background:var(--navy);color:white;padding:0.7rem 1rem;text-align:left;font-size:0.75rem;letter-spacing:0.5px;position:sticky;top:0;z-index:1;}
 .report-table td{padding:0.65rem 1rem;border-bottom:1px solid rgba(0,0,0,0.05);}
 .report-table tr:hover td{background:rgba(62,201,167,0.04);}
 .report-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.8rem;margin-bottom:1.5rem;}
@@ -554,7 +554,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
               <button class="btn btn-primary btn-sm" onclick="downloadPDF()">📄 PDF</button>
             </div>
           </div>
-          <table class="report-table" id="reportTable"></table>
+          <div id="reportTableWrap" style="max-height:380px;overflow-y:auto;border-radius:10px;border:1px solid rgba(0,0,0,0.06)">
+            <table class="report-table" id="reportTable"></table>
+          </div>
         </div>
 
         <!-- PROYECCIONES -->
