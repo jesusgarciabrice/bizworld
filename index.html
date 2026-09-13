@@ -1391,25 +1391,25 @@ function deleteBusiness(type, name, e){
 // ══════════════════ NEGOCIOS ══════════════════
 const BUSINESSES={
   tienda:{name:'Tienda',icon:'🏪',capital:500000,expenses:30000,products:[
-    {id:'arroz',name:'Arroz x 5kg',price:18000,cost:10000,stock:20},
-    {id:'aceite',name:'Aceite 1L',price:12000,cost:7000,stock:15},
-    {id:'azucar',name:'Azúcar x 2kg',price:9000,cost:5000,stock:4},
-    {id:'leche',name:'Leche x 6',price:22000,cost:14000,stock:12},
-    {id:'pasta',name:'Pasta x 3',price:11000,cost:6000,stock:8},
+    {id:'arroz',name:'Arroz x 5kg',price:18000,cost:10000,stock:10},
+    {id:'aceite',name:'Aceite 1L',price:12000,cost:7000,stock:10},
+    {id:'azucar',name:'Azúcar x 2kg',price:9000,cost:5000,stock:10},
+    {id:'leche',name:'Leche x 6',price:22000,cost:14000,stock:10},
+    {id:'pasta',name:'Pasta x 3',price:11000,cost:6000,stock:10},
   ]},
   boutique:{name:'Boutique',icon:'👗',capital:800000,expenses:80000,products:[
     {id:'blusa',name:'Blusa casual',price:65000,cost:30000,stock:10},
-    {id:'jean',name:'Jean slim',price:90000,cost:45000,stock:8},
-    {id:'vestido',name:'Vestido verano',price:110000,cost:55000,stock:3},
-    {id:'falda',name:'Falda midi',price:70000,cost:32000,stock:9},
-    {id:'chaqueta',name:'Chaqueta denim',price:140000,cost:70000,stock:5},
+    {id:'jean',name:'Jean slim',price:90000,cost:45000,stock:10},
+    {id:'vestido',name:'Vestido verano',price:110000,cost:55000,stock:10},
+    {id:'falda',name:'Falda midi',price:70000,cost:32000,stock:10},
+    {id:'chaqueta',name:'Chaqueta denim',price:140000,cost:70000,stock:10},
   ]},
   cafeteria:{name:'Cafetería',icon:'☕',capital:350000,expenses:25000,products:[
-    {id:'cafe',name:'Café americano',price:4000,cost:1500,stock:50},
-    {id:'capucc',name:'Cappuccino',price:6000,cost:2500,stock:40},
-    {id:'croiss',name:'Croissant',price:5500,cost:2000,stock:4},
-    {id:'sandwich',name:'Sándwich jamón',price:9000,cost:4000,stock:20},
-    {id:'jugo',name:'Jugo natural',price:5000,cost:1800,stock:8},
+    {id:'cafe',name:'Café americano',price:4000,cost:1500,stock:10},
+    {id:'capucc',name:'Cappuccino',price:6000,cost:2500,stock:10},
+    {id:'croiss',name:'Croissant',price:5500,cost:2000,stock:10},
+    {id:'sandwich',name:'Sándwich jamón',price:9000,cost:4000,stock:10},
+    {id:'jugo',name:'Jugo natural',price:5000,cost:1800,stock:10},
   ]},
 };
 
@@ -1847,12 +1847,20 @@ function resetBusiness(){
   G.history=[];
   G.todaySales=[];
   G.todayIncome=0;
+  G.todayExtraExpenses=0;
   G.achievements={};
   G.activity={};
   G.projections=[];
   G._lastSnapshot=null;
   G.createdAt=new Date().toISOString();
   if(bizDef) G._bizDef=bizDef; // mantener info del negocio personalizado
+  // Restaurar insumos y gastos mensuales a como estaban al crear el negocio (si los había)
+  G.supplies=bizDef?.variableExpenses?.length
+    ? bizDef.variableExpenses.map(e=>({id:genId(),name:e.name,amount:e.amount,lastDay:null}))
+    : [];
+  G.monthlyExpenses=bizDef?.monthlyExpenses?.length
+    ? bizDef.monthlyExpenses.map(e=>({id:genId(),name:e.name,amount:e.amount}))
+    : (expensesOriginal>0?[{id:genId(),name:'Gastos fijos',amount:Math.round(expensesOriginal*30)}]:[]);
 
   G=ensureGameState(G);
   window.G=G;
