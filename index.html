@@ -458,7 +458,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div id="suppliesList"></div>
           <div class="form-row" style="margin-top:0.6rem">
             <div class="form-group"><label>Nombre del insumo</label><input type="text" id="newSupplyName" placeholder="Ej: Cucharas desechables x100"></div>
-            <div class="form-group" style="max-width:150px"><label>Costo de reposición ($)</label><input type="number" id="newSupplyCost" placeholder="25000"></div>
+            <div class="form-group" style="max-width:150px"><label>Costo de reposición ($)</label><input type="text" inputmode="numeric" id="newSupplyCost" placeholder="25.000" oninput="formatMoneyInput(this)"></div>
           </div>
           <button class="btn btn-outline btn-sm" onclick="addSupply()">➕ Agregar insumo</button>
         </div>
@@ -474,7 +474,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
                   <span class="tooltip-box">Es el valor al que tú le vendes el producto al cliente. Ejemplo: vendes una tela a $25.000</span>
                 </span>
               </label>
-              <input type="number" id="newProdPrice" placeholder="50000">
+              <input type="text" inputmode="numeric" id="newProdPrice" placeholder="50.000" oninput="formatMoneyInput(this)">
             </div>
             <div class="form-group" style="max-width:120px">
               <label>
@@ -483,7 +483,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
                   <span class="tooltip-box">Es lo que tú pagaste para conseguir ese producto. La diferencia entre el precio y el costo es tu ganancia.</span>
                 </span>
               </label>
-              <input type="number" id="newProdCost" placeholder="25000">
+              <input type="text" inputmode="numeric" id="newProdCost" placeholder="25.000" oninput="formatMoneyInput(this)">
             </div>
             <div class="form-group" style="max-width:90px"><label>Stock</label><input type="number" id="newProdStock" placeholder="10" value="10"></div>
             <div class="form-group" style="max-width:110px">
@@ -511,7 +511,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div class="form-row" style="align-items:flex-end">
             <div class="form-group">
               <label>Gastos fijos diarios ($)</label>
-              <input type="number" id="editExpenses" placeholder="Ej: 50000">
+              <input type="text" inputmode="numeric" id="editExpenses" placeholder="Ej: 50.000" oninput="formatMoneyInput(this)">
             </div>
             <button class="btn btn-primary" onclick="updateExpenses()" style="margin-bottom:0">💾 Guardar</button>
           </div>
@@ -573,7 +573,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             </div>
             <div class="form-group">
               <label>Ventas diarias ($) — edita si quieres simular otro valor</label>
-              <input type="number" id="projSales" placeholder="Se calcula con tu promedio real" oninput="renderProjection()">
+              <input type="text" inputmode="numeric" id="projSales" placeholder="Se calcula con tu promedio real" oninput="formatMoneyInput(this);renderProjection()">
             </div>
           </div>
           <div id="projectionResult"></div>
@@ -624,7 +624,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
     </div>
     <div class="form-group" style="margin-bottom:1rem">
       <label>Capital inicial ($)</label>
-      <input type="number" id="customCapital" placeholder="500000" value="500000" oninput="updateExpenseSummary()">
+      <input type="text" inputmode="numeric" id="customCapital" placeholder="500.000" value="500.000" oninput="formatMoneyInput(this);updateExpenseSummary()">
     </div>
     <p id="expenseHint" style="font-size:0.8rem;color:var(--teal);margin-bottom:1rem;display:none"></p>
 
@@ -796,6 +796,25 @@ function escapeHTML(str){
 // ── Generar ID único ──
 function genId(){
   return Date.now().toString(36)+Math.random().toString(36).substr(2,5);
+}
+
+// ── Inputs de plata con puntos de miles (ej: 3.000.000) ──
+function formatMoneyInput(el){
+  if(!el) return;
+  const cursorFromEnd=el.value.length-(el.selectionEnd||el.value.length);
+  let raw=el.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'');
+  el.value=raw===''?'':Number(raw).toLocaleString('es-CO');
+  const pos=Math.max(0,el.value.length-cursorFromEnd);
+  try{ el.setSelectionRange(pos,pos); }catch(e){}
+}
+function parseMoneyInput(el){
+  if(!el) return 0;
+  const v=(typeof el==='string')?el:el.value;
+  return parseInt(String(v||'').replace(/\D/g,''))||0;
+}
+function setMoneyValue(el,num){
+  if(!el) return;
+  el.value=(num===''||num===null||num===undefined)?'':Number(num).toLocaleString('es-CO');
 }
 
 // ── Asegurar estado válido del negocio ──
@@ -1436,11 +1455,11 @@ function goToLanding(){
 // ══════════════════ AGREGAR PRODUCTO ══════════════════
 function addNewProduct(){
   const name=document.getElementById('newProdName').value.trim();
-  const price=parseFloat(document.getElementById('newProdPrice').value);
-  const cost=parseFloat(document.getElementById('newProdCost').value)||0;
+  const price=parseMoneyInput(document.getElementById('newProdPrice'));
+  const cost=parseMoneyInput(document.getElementById('newProdCost'));
   const stock=parseFloat(document.getElementById('newProdStock').value)||0;
-  if(isNaN(price)||price<=0){ toast('El precio debe ser mayor a 0'); return; }
-  if(isNaN(cost)||cost<0){ toast('El costo no puede ser negativo'); return; }
+  if(price<=0){ toast('El precio debe ser mayor a 0'); return; }
+  if(cost<0){ toast('El costo no puede ser negativo'); return; }
   if(isNaN(stock)||stock<0){ toast('El stock no puede ser negativo'); return; }
   if(cost>price){ toast('Advertencia: el costo supera el precio de venta (margen negativo)'); }
   const unit=document.getElementById('newProdUnit')?.value||'unidad';
@@ -1458,9 +1477,8 @@ function addNewProduct(){
 
 // ══════════════════ ACTUALIZAR GASTOS FIJOS ══════════════════
 function updateExpenses(){
-  const raw=document.getElementById('editExpenses').value;
-  const val=(raw===''||raw===null)?0:parseFloat(raw);
-  if(isNaN(val)||val<0){ toast('El gasto debe ser 0 o mayor'); return; }
+  const val=parseMoneyInput(document.getElementById('editExpenses'));
+  if(val<0){ toast('El gasto debe ser 0 o mayor'); return; }
   G.expenses=val;
   saveG();
   renderExpensesConfig();
@@ -1471,7 +1489,7 @@ function renderExpensesConfig(){
   const el=document.getElementById('currentExpenses');
   const input=document.getElementById('editExpenses');
   if(!el||!input) return;
-  input.value=G.expenses||0;
+  setMoneyValue(input,G.expenses||0);
   el.textContent=G.expenses>0?`✅ Actualmente: ${fmt(G.expenses)}/día`:'ℹ️ Sin gastos fijos. Se descuentan $0 por día.';
 }
 
@@ -1505,8 +1523,8 @@ function addProductRow(){
   div.className='product-row';
   div.innerHTML=`
     <input placeholder="Nombre" class="cp-name">
-    <input type="number" placeholder="$" class="cp-price">
-    <input type="number" placeholder="$" class="cp-cost">
+    <input type="text" inputmode="numeric" placeholder="$" class="cp-price" oninput="formatMoneyInput(this)">
+    <input type="text" inputmode="numeric" placeholder="$" class="cp-cost" oninput="formatMoneyInput(this)">
     <input type="number" placeholder="10" class="cp-stock" value="10">
     <select class="cp-unit">
       <option value="unidad">Unidad</option>
@@ -1537,7 +1555,7 @@ function addExpenseRow(kind,name,amount){
   div.className='expense-row';
   div.innerHTML=`
     <input placeholder="${ph.name}" class="exp-name" value="${name?escapeHTML(name):''}">
-    <input type="number" placeholder="$" class="exp-amount" value="${amount||''}" oninput="updateExpenseSummary()">
+    <input type="text" inputmode="numeric" placeholder="$" class="exp-amount" value="${amount?Number(amount).toLocaleString('es-CO'):''}" oninput="formatMoneyInput(this);updateExpenseSummary()">
     <button onclick="this.parentNode.remove();updateExpenseSummary()" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:1rem;padding:0">✕</button>`;
   document.getElementById(containerId).appendChild(div);
   updateExpenseSummary();
@@ -1548,7 +1566,7 @@ function getExpenseRows(kind){
   const items=[];
   rows.forEach(r=>{
     const n=r.querySelector('.exp-name').value.trim();
-    const a=parseInt(r.querySelector('.exp-amount').value)||0;
+    const a=parseMoneyInput(r.querySelector('.exp-amount'));
     if(n||a) items.push({name:n||'Gasto sin nombre',amount:a});
   });
   return items;
@@ -1560,7 +1578,7 @@ function updateExpenseSummary(){
   const monthly=getExpenseRows('monthly').reduce((a,i)=>a+i.amount,0);
   const variable=getExpenseRows('variable').reduce((a,i)=>a+i.amount,0);
   const dailyFixed=Math.round(monthly/30);
-  const capital=parseInt(document.getElementById('customCapital')?.value)||0;
+  const capital=parseMoneyInput(document.getElementById('customCapital'));
   const capitalNeto=capital-once-variable;
   el.innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0.8rem;font-size:0.82rem">
@@ -1579,13 +1597,13 @@ function updateExpenseSummary(){
 function saveCustomBusiness(){
   const name=document.getElementById('customName').value.trim();
   const type=document.getElementById('customType').value.trim()||'negocio';
-  const capitalDeclarado=parseInt(document.getElementById('customCapital').value)||500000;
+  const capitalDeclarado=parseMoneyInput(document.getElementById('customCapital'))||500000;
   const rows=document.querySelectorAll('#customProducts .product-row');
   const products=[];
   rows.forEach((r,i)=>{
     const n=r.querySelector('.cp-name').value.trim();
-    const p=parseInt(r.querySelector('.cp-price').value)||0;
-    const c=parseInt(r.querySelector('.cp-cost').value)||0;
+    const p=parseMoneyInput(r.querySelector('.cp-price'));
+    const c=parseMoneyInput(r.querySelector('.cp-cost'));
     const s=parseInt(r.querySelector('.cp-stock').value)||10;
     const u=r.querySelector('.cp-unit')?.value||'unidad';
     if(n) products.push({id:'p'+i,name:n,price:p,cost:c,stock:s,unit:u});
@@ -1888,7 +1906,7 @@ function renderSupplies(){
     const last=s.lastDay?`Última compra: día ${s.lastDay}`:'Sin compras registradas aún';
     return `<div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.6rem;padding:0.6rem;background:#fafbfc;border:1.5px solid var(--border-input);border-radius:10px;flex-wrap:wrap">
       <div style="flex:1;min-width:140px"><strong>${escapeHTML(s.name)}</strong><div style="font-size:0.72rem;color:var(--muted)">${last}</div></div>
-      <input type="number" class="supply-amount" data-id="${s.id}" value="${s.amount}" style="width:110px;padding:0.4rem 0.5rem;border:1.5px solid var(--border-input);border-radius:8px;font-family:'DM Sans',sans-serif">
+      <input type="text" inputmode="numeric" class="supply-amount" data-id="${s.id}" value="${Number(s.amount).toLocaleString('es-CO')}" oninput="formatMoneyInput(this)" style="width:110px;padding:0.4rem 0.5rem;border:1.5px solid var(--border-input);border-radius:8px;font-family:'DM Sans',sans-serif">
       <button class="btn btn-primary btn-sm" onclick="restockSupply('${s.id}')">🔁 Reponer</button>
       <button onclick="deleteSupply('${s.id}')" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:1rem;padding:0" title="Eliminar insumo">✕</button>
     </div>`;
@@ -1896,7 +1914,7 @@ function renderSupplies(){
 }
 function addSupply(){
   const name=document.getElementById('newSupplyName').value.trim();
-  const amount=parseInt(document.getElementById('newSupplyCost').value)||0;
+  const amount=parseMoneyInput(document.getElementById('newSupplyCost'));
   if(!name){ toast('⚠️ Ponle un nombre al insumo'); return; }
   if(!G.supplies) G.supplies=[];
   G.supplies.push({id:genId(),name,amount,lastDay:null});
@@ -1909,7 +1927,7 @@ function restockSupply(id){
   const sup=(G.supplies||[]).find(s=>s.id===id);
   if(!sup) return;
   const input=document.querySelector(`.supply-amount[data-id="${id}"]`);
-  const amount=parseInt(input?.value)||sup.amount||0;
+  const amount=parseMoneyInput(input)||sup.amount||0;
   if(amount<=0){ toast('⚠️ Ingresa un costo válido'); return; }
   if(G.capital<amount){ toast(`Capital insuficiente. Necesitas ${fmt(amount)} pero tienes ${fmt(G.capital)}`); return; }
   G.capital=parseFloat((G.capital-amount).toFixed(2));
@@ -2035,11 +2053,11 @@ function saveProjection(){
   const daysVal=document.getElementById('projPeriod')?.value;
   const days=parseInt(daysVal);
   if(!daysVal||isNaN(days)||days<=0){ toast('Primero escribe cuántos días quieres proyectar.'); return; }
-  const inputVal=parseFloat(document.getElementById('projSales')?.value);
+  const inputVal=parseMoneyInput(document.getElementById('projSales'));
   const totalDays=Math.max(G.history?.length||1,1);
   const totalSales=(G.sales||[]).reduce((a,s)=>a+s.total,0)+(G.todayIncome||0);
   const avgDailySales=totalSales/totalDays;
-  const dailySales=(!isNaN(inputVal)&&inputVal>0)?inputVal:avgDailySales;
+  const dailySales=(inputVal>0)?inputVal:avgDailySales;
   const name=document.getElementById('projName')?.value.trim()||`Escenario ${new Date().toLocaleDateString('es-CO')}`;
   const dailyExpenses=G.expenses||0;
   const projIncome=dailySales*days;
@@ -2137,8 +2155,8 @@ function renderProjection(){
   const totalSales=(G.sales||[]).reduce((a,s)=>a+s.total,0)+(G.todayIncome||0);
   const avgDailySales=totalSales/totalDays;
   // Permitir que el usuario ajuste el promedio
-  const inputVal=parseFloat(document.getElementById('projSales')?.value);
-  const dailySales=(!isNaN(inputVal)&&inputVal>0)?inputVal:avgDailySales;
+  const inputVal=parseMoneyInput(document.getElementById('projSales'));
+  const dailySales=(inputVal>0)?inputVal:avgDailySales;
   // Si no hay placeholder aún, poner el calculado
   const projInput=document.getElementById('projSales');
   if(projInput&&!projInput.value&&avgDailySales>0){
