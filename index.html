@@ -780,7 +780,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGK2yJX6ucfqt1d2RRLO-fCrEpsS0hxbQ",
@@ -798,7 +798,7 @@ const db = getFirestore(fbApp);
 // Exponer Firebase al scope global
 window._fbAuth = auth;
 window._fbDb = db;
-window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile, doc, setDoc, getDoc };
+window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, onAuthStateChanged, updateProfile, doc, setDoc, getDoc, arrayUnion };
 
 // Escuchar cambios de sesión
 onAuthStateChanged(auth, async (user)=>{
@@ -815,6 +815,18 @@ onAuthStateChanged(auth, async (user)=>{
 
     // Limpiar claves viejas sin uid antes de mostrar
     if(window.cleanOldKeys) window.cleanOldKeys();
+
+    // Traer del servidor lo que este dispositivo no tenga guardado localmente
+    // (así funciona igual si entras desde el celular, la PC, o cualquier otro navegador)
+    await new Promise(resolve=>{
+      let tries=0;
+      const tryWait=()=>{
+        if(window.syncFromCloud || tries>40) resolve();
+        else { tries++; setTimeout(tryWait,50); }
+      };
+      tryWait();
+    });
+    if(window.syncFromCloud) await window.syncFromCloud(user.uid);
 
     // Esperar que el script principal esté listo y sincronizar currentUser
     const tryShow=()=>{
@@ -1175,9 +1187,43 @@ async function saveG(){
       const fns=window._fbFns; const db=window._fbDb;
       await fns.setDoc(fns.doc(db,'gameData',window._currentUser.uid+'_'+G.type), JSON.parse(JSON.stringify(G)));
       await fns.setDoc(fns.doc(db,'gameData',window._currentUser.uid+'_last'),{type:G.type});
+      // Mantener un índice de qué negocios tiene este usuario, para poder traerlos en cualquier dispositivo
+      await fns.setDoc(fns.doc(db,'users',window._currentUser.uid),{businesses:fns.arrayUnion(G.type)},{merge:true});
     }catch(e){ console.error('Firestore save error:',e); }
   }
 }
+
+// Trae de la nube los negocios que este navegador todavía no tenga guardados localmente.
+// Así, si un cliente entra desde el celular y desde la PC, en los dos ve lo mismo.
+async function syncFromCloud(uid){
+  const fns=window._fbFns, db=window._fbDb;
+  if(!fns||!db||!uid||uid==='demo') return;
+  try{
+    let types=[];
+    const userDoc=await fns.getDoc(fns.doc(db,'users',uid));
+    if(userDoc.exists()){
+      const d=userDoc.data();
+      if(Array.isArray(d.businesses)) types=d.businesses.slice();
+    }
+    const lastDoc=await fns.getDoc(fns.doc(db,'gameData',uid+'_last'));
+    if(lastDoc.exists()){
+      const lt=lastDoc.data()?.type;
+      if(lt){
+        if(!types.includes(lt)) types.push(lt);
+        localStorage.setItem(`bw_${uid}_last`, lt);
+      }
+    }
+    for(const type of types){
+      const localKey=`bw_${uid}_${type}`;
+      if(localStorage.getItem(localKey)) continue; // ya existe en este navegador, no lo pisamos
+      const gDoc=await fns.getDoc(fns.doc(db,'gameData',uid+'_'+type));
+      if(gDoc.exists()){
+        localStorage.setItem(localKey, JSON.stringify(gDoc.data()));
+      }
+    }
+  }catch(e){ console.error('Error trayendo datos de la nube:',e); }
+}
+window.syncFromCloud=syncFromCloud;
 
 function loadBusiness(type){
   if(!currentUser) return false;
