@@ -1225,6 +1225,23 @@ async function syncFromCloud(uid){
 }
 window.syncFromCloud=syncFromCloud;
 
+// Si un negocio ya existe guardado en este navegador pero la nube no lo tiene indexado
+// (por ejemplo, se guardó antes de este arreglo), lo sube para que aparezca en cualquier otro dispositivo.
+async function reindexBusinessInCloud(uid,type){
+  const fns=window._fbFns, db=window._fbDb;
+  if(!fns||!db||!uid||uid==='demo') return;
+  try{
+    await fns.setDoc(fns.doc(db,'users',uid),{businesses:fns.arrayUnion(type)},{merge:true});
+    const ref=fns.doc(db,'gameData',uid+'_'+type);
+    const existing=await fns.getDoc(ref);
+    if(!existing.exists()){
+      const local=localStorage.getItem(`bw_${uid}_${type}`);
+      if(local) await fns.setDoc(ref, JSON.parse(local));
+    }
+  }catch(e){ console.error('Error reindexando negocio en la nube:',e); }
+}
+window.reindexBusinessInCloud=reindexBusinessInCloud;
+
 function loadBusiness(type){
   if(!currentUser) return false;
   const key=bizKey(type);
@@ -1370,6 +1387,7 @@ function renderAllBusinesses(){
     if(d){
       const g=JSON.parse(d);
       savedBusinesses.push({...b, day:g.day||1, capital:g.capital||0, saved:true});
+      reindexBusinessInCloud(uid,b.type);
     }
   });
 
@@ -1387,6 +1405,7 @@ function renderAllBusinesses(){
               desc:g._bizDef.type||'Negocio personalizado',
               day:g.day||1, capital:g.capital||0, saved:true, custom:true
             });
+            reindexBusinessInCloud(uid,g.type);
           }
         }
       }catch(e){}
