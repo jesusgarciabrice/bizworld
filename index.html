@@ -429,9 +429,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="page" id="page-ventas">
         <div class="sec-title">Registrar venta</div>
         <div class="chart-card" style="margin-bottom:1.5rem">
-          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">El stock se descuenta automáticamente al registrar.</p>
+          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Agrega los productos que el cliente se va a llevar. Puedes agregar varios antes de confirmar, y quitar alguno si el cliente cambia de opinión.</p>
           <div class="form-row" id="saleFormRow"></div>
-          <button class="btn btn-primary" onclick="registerSale()">✅ Confirmar venta</button>
+          <button class="btn btn-outline" type="button" onclick="addToCart()">➕ Agregar al carrito</button>
+          <div id="saleCartWrap" style="margin-top:1rem"></div>
+          <button class="btn btn-primary" onclick="registerSale()" style="margin-top:0.8rem">✅ Confirmar venta</button>
         </div>
         <div class="sec-title">Historial del día</div>
         <div class="chart-card">
@@ -1474,7 +1476,7 @@ function launchApp(badgeName, welcomeTitle){
     const initial=(currentUser.name||currentUser.email||'U')[0].toUpperCase();
     av.childNodes[0].textContent=initial;
   }
-  updateTopDay(); buildSaleForm(); buildBuyForm(); renderAll(); showPage('dashboard');
+  updateTopDay(); SaleCart=[]; buildSaleForm(); buildBuyForm(); renderAll(); showPage('dashboard');
 }
 
 function goToLanding(){
@@ -1866,6 +1868,7 @@ function resetBusiness(){
   window.G=G;
   saveG();
   updateTopDay();
+  SaleCart=[];
   buildSaleForm();
   buildBuyForm();
   renderAll();
@@ -1944,45 +1947,96 @@ function adjustCapital(){
   toast(amount>0?`Se restaron ${fmt(amount)} de tu capital.`:`Se sumaron ${fmt(Math.abs(amount))} a tu capital.`);
 }
 
+let SaleCart=[]; // {cartId, productId, name, unit, qty, price, cost}
+
+function addToCart(){
+  const pid=document.getElementById('saleProduct').value;
+  const prod=G.products.find(p=>p.id===pid);
+  if(!prod){ toast('Producto no encontrado'); return; }
+  const unit=prod.unit||'unidad';
+  const allowDecimal=['metro','kg','gramo','litro','libra'].includes(unit);
+  const rawQty=allowDecimal?parseFloat(document.getElementById('saleQty').value):parseInt(document.getElementById('saleQty').value);
+  if(isNaN(rawQty)||rawQty<=0){ toast('La cantidad debe ser mayor a 0'); return; }
+  const alreadyInCart=SaleCart.filter(c=>c.productId===pid).reduce((a,c)=>a+c.qty,0);
+  if(prod.stock<alreadyInCart+rawQty){
+    toast(`⚠️ Stock insuficiente. Disponible: ${parseFloat((prod.stock-alreadyInCart).toFixed(4))} ${unit}`);
+    return;
+  }
+  SaleCart.push({cartId:genId(),productId:pid,name:prod.name,unit,qty:rawQty,price:prod.price,cost:prod.cost});
+  renderSaleCart();
+  toast(`Agregado: ${rawQty} ${unit} × ${escapeHTML(prod.name)}`);
+}
+
+function removeFromCart(cartId){
+  SaleCart=SaleCart.filter(c=>c.cartId!==cartId);
+  renderSaleCart();
+  toast('Producto quitado del carrito');
+}
+
+function renderSaleCart(){
+  const el=document.getElementById('saleCartWrap');
+  if(!el) return;
+  if(SaleCart.length===0){ el.innerHTML=''; return; }
+  const total=SaleCart.reduce((a,c)=>a+(c.price*c.qty),0);
+  el.innerHTML=`
+    <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:0.5rem">Carrito de esta venta</div>
+    ${SaleCart.map(c=>`
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.5rem;padding:0.5rem 0.7rem;background:#fafbfc;border:1.5px solid var(--border-input);border-radius:8px">
+        <div style="flex:1;font-size:0.85rem"><strong>${escapeHTML(c.name)}</strong> — ${c.qty} ${c.unit} × ${fmt(c.price)} = ${fmt(c.price*c.qty)}</div>
+        <button onclick="removeFromCart('${c.cartId}')" style="background:none;border:none;color:#e57373;cursor:pointer;font-size:1rem;padding:0" title="Quitar — el cliente no lo quiere">✕</button>
+      </div>`).join('')}
+    <div style="text-align:right;font-weight:700;color:var(--teal);margin-top:0.3rem">Total del carrito: ${fmt(total)}</div>`;
+}
+
 function buildSaleForm(){
   if(!G.products||!G.products.length) return;
   document.getElementById('saleFormRow').innerHTML=`
     <div class="form-group"><label>Producto</label>
     <select id="saleProduct">${G.products.map(p=>`<option value="${p.id}">${p.name} — ${fmt(p.price)}</option>`).join('')}</select></div>
     <div class="form-group" style="max-width:110px"><label>Cantidad</label><input type="number" id="saleQty" value="1" min="1"></div>`;
+  renderSaleCart();
 }
 
 function registerSale(){
-  const pid=document.getElementById('saleProduct').value;
-  const unit=G.products.find(p=>p.id===pid)?.unit||'unidad';
-  const allowDecimal=['metro','kg','gramo','litro','libra'].includes(unit);
-  const rawQty=allowDecimal?parseFloat(document.getElementById('saleQty').value):parseInt(document.getElementById('saleQty').value);
-  if(isNaN(rawQty)||rawQty<=0){ toast('La cantidad debe ser mayor a 0'); return; }
-  const qty=rawQty;
-  const prod=G.products.find(p=>p.id===pid);
-  if(!prod){ toast('Producto no encontrado'); return; }
-  if(prod.stock<qty){ toast('Stock insuficiente para esta venta'); return; }
-  prod.stock=parseFloat((prod.stock-qty).toFixed(4));
-  const revenue=parseFloat((prod.price*qty).toFixed(2));
-  const cogs=parseFloat((prod.cost*qty).toFixed(2));
-  const grossProfit=revenue-cogs;
-  const saleId=genId();
-  G.capital=parseFloat((G.capital+revenue).toFixed(2));
-  G.todayIncome=parseFloat((G.todayIncome+revenue).toFixed(2));
-  const saleRecord={
-    id:saleId,day:G.day,
-    product:prod.name,name:prod.name,
-    productId:prod.id,qty,unit:unit,
-    unitPrice:prod.price,unitCost:prod.cost,
-    revenue,total:revenue,cogs,grossProfit,
-    createdAt:new Date().toISOString()
-  };
-  G.todaySales.push(saleRecord);
-  G.sales.push({...saleRecord});
+  if(SaleCart.length===0){ toast('⚠️ Agrega al menos un producto al carrito antes de confirmar'); return; }
+  for(const item of SaleCart){
+    const prod=G.products.find(p=>p.id===item.productId);
+    if(!prod||prod.stock<item.qty){
+      toast(`⚠️ Stock insuficiente para ${item.name}. Ajusta el carrito.`);
+      return;
+    }
+  }
+  const groupId=genId();
+  let totalRevenue=0;
+  const names=[];
+  SaleCart.forEach(item=>{
+    const prod=G.products.find(p=>p.id===item.productId);
+    prod.stock=parseFloat((prod.stock-item.qty).toFixed(4));
+    const revenue=parseFloat((prod.price*item.qty).toFixed(2));
+    const cogs=parseFloat((prod.cost*item.qty).toFixed(2));
+    const grossProfit=revenue-cogs;
+    const saleRecord={
+      id:genId(),day:G.day,
+      product:prod.name,name:prod.name,
+      productId:prod.id,qty:item.qty,unit:item.unit,
+      unitPrice:prod.price,unitCost:prod.cost,
+      revenue,total:revenue,cogs,grossProfit,
+      groupId,
+      createdAt:new Date().toISOString()
+    };
+    G.todaySales.push(saleRecord);
+    G.sales.push({...saleRecord});
+    totalRevenue+=revenue;
+    names.push(`${item.qty} ${item.unit} × ${prod.name}`);
+  });
+  G.capital=parseFloat((G.capital+totalRevenue).toFixed(2));
+  G.todayIncome=parseFloat((G.todayIncome+totalRevenue).toFixed(2));
   if(!G.activity) G.activity={};
   G.activity.firstSaleCompleted=true;
+  SaleCart=[];
+  renderSaleCart();
   checkAchievements(); saveG(); renderSaleLog(); renderInventory(); renderStats();
-  toast(`Venta: ${qty} ${unit} × ${escapeHTML(prod.name)} = ${fmt(revenue)}`);
+  toast(`Venta registrada: ${names.join(', ')} — Total ${fmt(totalRevenue)}`);
 }
 
 function buildBuyForm(){
