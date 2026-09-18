@@ -1127,6 +1127,8 @@ async function forgotPassword(){
 }
 
 function demoLogin(){
+  // Modo demo: siempre empieza desde cero, sin importar lo que haya quedado de antes
+  Object.keys(localStorage).filter(k=>k.startsWith('bw_demo_')).forEach(k=>localStorage.removeItem(k));
   window._currentUser={uid:'demo',name:'Demo',email:'demo@bizworld.com',avatar:'D'};
   sessionStorage.setItem('bw_demo','1');
   // Ocultar todas las pantallas de auth
@@ -1137,7 +1139,13 @@ function demoLogin(){
 }
 
 async function doLogout(){
-  await saveG(); // Guardar antes de cerrar sesión
+  const wasDemo=window._currentUser?.uid==='demo';
+  if(wasDemo){
+    Object.keys(localStorage).filter(k=>k.startsWith('bw_demo_')).forEach(k=>localStorage.removeItem(k));
+    alert('Estabas en modo demo: nada de lo que hiciste se guardó.\n\nSi quieres que tu negocio se guarde de verdad, regístrate con tu correo la próxima vez.');
+  } else {
+    await saveG(); // Guardar antes de cerrar sesión
+  }
   const fns=window._fbFns; const auth=window._fbAuth;
   if(fns && auth && window._currentUser?.uid!=='demo') await fns.signOut(auth);
   window._currentUser=null;
@@ -1155,13 +1163,14 @@ function lastKey(){ const uid=window._currentUser?.uid||'demo'; return `bw_${uid
 async function saveG(){
   // Siempre sincronizar currentUser desde window
   if(!G.type||!currentUser) return;
+  if(window._currentUser?.uid==='demo') return; // El modo demo no guarda nada, ni siquiera en este navegador
   const key=bizKey(G.type);
   try {
     const data=JSON.stringify(G);
     localStorage.setItem(key, data);
     localStorage.setItem(lastKey(), G.type);
   } catch(e) { console.error('localStorage save error:',e); }
-  if(window._currentUser?.uid!=='demo' && window._fbFns && window._fbDb){
+  if(window._fbFns && window._fbDb){
     try{
       const fns=window._fbFns; const db=window._fbDb;
       await fns.setDoc(fns.doc(db,'gameData',window._currentUser.uid+'_'+G.type), JSON.parse(JSON.stringify(G)));
@@ -1471,7 +1480,6 @@ function startGame(type){
       expenses:b.expenses,sales:[],purchases:[],history:[],todaySales:[],
       todayIncome:0,achievements:{},activity:{},projections:[],
       createdAt:new Date().toISOString(), capitalInicial:b.capital};
-    if(uid==='demo') preloadDemo(type);
   }
   G=ensureGameState(G);
   window.G=G;
@@ -2974,7 +2982,9 @@ function initEvents(){
   document.getElementById('menuLogout')?.addEventListener('click',(e)=>{
     e.stopPropagation();
     document.getElementById('userMenu').style.display='none';
-    if(confirm('¿Seguro que quieres cerrar sesión?\nTu progreso quedará guardado.')) doLogout();
+    const isDemo=window._currentUser?.uid==='demo';
+    const msg=isDemo?'¿Seguro que quieres salir del modo demo?\nNada de lo que hiciste se va a guardar.':'¿Seguro que quieres cerrar sesión?\nTu progreso quedará guardado.';
+    if(confirm(msg)) doLogout();
   });
 }
 
