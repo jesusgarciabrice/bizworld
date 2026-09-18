@@ -382,7 +382,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       <div class="sidebar-section">Extra</div>
       <div class="nav-item" data-page="minegocio" onclick="showPage('minegocio')"><span class="nav-icon"></span> Mi negocio</div>
       <div class="nav-item" data-page="logros" onclick="showPage('logros')"><span class="nav-icon"></span> Logros</div>
-      <div class="nav-item" onclick="nextDay()"><span class="nav-icon"></span> Cerrar el día de hoy</div>
+      <div class="nav-item" onclick="openCloseDayModal()"><span class="nav-icon"></span> Cerrar el día de hoy</div>
       <div class="nav-item" onclick="goToLanding()"><span class="nav-icon"></span> Cambiar negocio</div>
     </div>
     <div class="main">
@@ -396,7 +396,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <p id="welcomeSub">Aquí puedes ver cómo va tu negocio.</p>
           </div>
           <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="nextDay()">Cerrar el día de hoy</button>
+            <button class="btn btn-primary" onclick="openCloseDayModal()">Cerrar el día de hoy</button>
             <button class="btn btn-outline btn-sm" onclick="undoDay()" id="undoDayBtn" style="display:none">↩ Deshacer último día</button>
           </div>
         </div>
@@ -633,6 +633,29 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
       </div>
 
     </div>
+  </div>
+</div>
+
+<!-- MODAL CERRAR EL DÍA -->
+<div class="modal-overlay" id="closeDayModal">
+  <div class="modal" style="max-width:460px">
+    <h3>📅 ¿Cómo estuvo el gasto de hoy?</h3>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">No todos los días se gasta igual. Dinos qué pasó hoy con los gastos fijos de tu negocio antes de cerrar el día.</p>
+    <div id="closeDayUsualBtn" style="margin-bottom:0.7rem">
+      <button class="btn btn-primary" style="width:100%;justify-content:flex-start;text-align:left" onclick="confirmCloseDay('usual')">
+        ✅ Sí, el de siempre — <span id="closeDayUsualAmount"></span>
+      </button>
+    </div>
+    <button class="btn btn-outline" style="width:100%;justify-content:flex-start;text-align:left;margin-bottom:0.7rem" onclick="confirmCloseDay('none')">
+      🚫 No, hoy no gasté nada
+    </button>
+    <div style="display:flex;gap:0.5rem;align-items:flex-end;margin-bottom:0.5rem">
+      <div class="form-group" style="margin-bottom:0"><label>Otro monto distinto ($)</label>
+        <input type="text" inputmode="numeric" id="closeDayCustomAmount" placeholder="Ej: 15.000" oninput="formatMoneyInput(this)" onchange="formatMoneyInput(this)">
+      </div>
+      <button class="btn btn-outline" onclick="confirmCloseDay('custom')" style="margin-bottom:0">Usar este</button>
+    </div>
+    <button class="btn btn-outline btn-sm" onclick="closeCloseDayModal()" style="width:100%;margin-top:0.4rem;color:var(--muted);border-color:var(--border-input)">Cancelar</button>
   </div>
 </div>
 
@@ -1739,14 +1762,43 @@ function saveCustomBusiness(){
 
 // ══════════════════ JUEGO ══════════════════
 let _closingDay=false;
-function nextDay(){
+function openCloseDayModal(){
+  const amtEl=document.getElementById('closeDayUsualAmount');
+  if(amtEl) amtEl.textContent=fmt(G.expenses||0);
+  const custom=document.getElementById('closeDayCustomAmount');
+  if(custom) custom.value='';
+  const modal=document.getElementById('closeDayModal');
+  let warn=modal.querySelector('.close-day-warn');
+  if(G.todaySales.length===0){
+    if(!warn){
+      warn=document.createElement('p');
+      warn.className='close-day-warn';
+      warn.style.cssText='font-size:0.8rem;color:#c47a00;background:#fff6e5;border:1px solid #ffe0a3;border-radius:8px;padding:0.6rem 0.8rem;margin-bottom:1rem';
+      modal.querySelector('.modal').insertBefore(warn, modal.querySelector('.modal').children[2]);
+    }
+    warn.textContent='⚠️ Todavía no registraste ninguna venta hoy.';
+  } else if(warn){
+    warn.remove();
+  }
+  modal.classList.add('open');
+}
+function closeCloseDayModal(){
+  document.getElementById('closeDayModal').classList.remove('open');
+}
+function confirmCloseDay(mode){
+  let amount;
+  if(mode==='usual') amount=G.expenses||0;
+  else if(mode==='none') amount=0;
+  else if(mode==='custom') amount=parseMoneyInput(document.getElementById('closeDayCustomAmount'));
+  closeCloseDayModal();
+  nextDay(amount);
+}
+
+function nextDay(fixedOverride){
   if(_closingDay) return; // Prevenir doble clic
-  const fixedExpenses=typeof G.expenses==='number'?G.expenses:0;
+  const fixedExpenses=typeof fixedOverride==='number'?fixedOverride:(typeof G.expenses==='number'?G.expenses:0);
   const extraExpenses=typeof G.todayExtraExpenses==='number'?G.todayExtraExpenses:0;
   const expenses=fixedExpenses+extraExpenses; // total del día para el reporte de ganancias
-  if(G.todaySales.length===0){
-    if(!confirm(`No registraste ventas hoy.\nSi cierras el día se descontarán ${fmt(fixedExpenses)} de gastos fijos.\n¿Continuar?`)) return;
-  }
   _closingDay=true;
   // Calcular métricas del día a cerrar
   const dayRevenue=G.todayIncome||0;
@@ -2812,7 +2864,7 @@ Aparece de inmediato en tu inventario y en la lista de productos para vender.`;
 
   // Cerrar el día / avanzar día
   if(m.includes('cerrar el dia')||m.includes('avanzar')||m.includes('siguiente dia')||m.includes('pasar dia'))
-    return `Para cerrar el día de hoy haz clic en el botón "Cerrar el día de hoy" en el panel principal o en el menú lateral. Esto descuenta tus gastos fijos (${fmt(G.expenses||0)}) y empieza un día nuevo. Si te equivocas, puedes deshacer el último día con el botón "↩ Deshacer último día".`;
+    return `Para cerrar el día de hoy haz clic en el botón "Cerrar el día de hoy" en el panel principal o en el menú lateral. Te va a preguntar si hoy gastaste lo de siempre (${fmt(G.expenses||0)}), nada, u otro monto distinto — así se ajusta a días donde el gasto varía. Después empieza un día nuevo. Si te equivocas, puedes deshacer el último día con el botón "↩ Deshacer último día".`;
 
   // Deshacer
   if(m.includes('deshacer')||m.includes('equivoque')||m.includes('error')||m.includes('borrar venta'))
