@@ -1189,6 +1189,7 @@ async function saveG(){
   // Siempre sincronizar currentUser desde window
   if(!G.type||!currentUser) return;
   if(window._currentUser?.uid==='demo') return; // El modo demo no guarda nada, ni siquiera en este navegador
+  G.updatedAt=Date.now(); // para saber cuál copia es más reciente entre dispositivos
   const key=bizKey(G.type);
   try {
     const data=JSON.stringify(G);
@@ -1468,25 +1469,41 @@ function renderAllBusinesses(){
   grid.innerHTML=html;
 }
 
-function continueBusiness(type){
+async function continueBusiness(type){
   const d=localStorage.getItem(bizKey(type));
+  let localG=null;
   if(d){
-    try {
-      G=JSON.parse(d);
-    } catch(e) {
+    try { localG=JSON.parse(d); }
+    catch(e) {
       console.error('Error parsing saved business data:', e);
       toast('Error al cargar el negocio. Iniciando desde cero.');
       startGame(type); return;
     }
-    if(!G.type) G.type=type;
-    G=ensureGameState(G); // Migrar datos si es necesario
-    window.G=G;
-    const b=BUSINESSES[type]||G._bizDef||{icon:'🏢',name:type};
-    document.getElementById('landing').style.display='none';
-    launchApp(`${b.icon||''} ${b.name||type}`.trim(), `Bienvenido de nuevo a "${b.name||type}"`);
-  } else {
-    startGame(type);
   }
+  // Revisar si hay una versión más reciente en la nube (ej: avanzaste el juego desde otro dispositivo)
+  const uid=window._currentUser?.uid;
+  if(uid && uid!=='demo' && window._fbFns && window._fbDb){
+    try{
+      const fns=window._fbFns, db=window._fbDb;
+      const cloudDoc=await fns.getDoc(fns.doc(db,'gameData',uid+'_'+type));
+      if(cloudDoc.exists()){
+        const cloudG=cloudDoc.data();
+        if(!localG || (cloudG.updatedAt||0) > (localG.updatedAt||0)){
+          localG=cloudG;
+          localStorage.setItem(bizKey(type), JSON.stringify(cloudG));
+          toast('Traído lo último desde tu otro dispositivo.');
+        }
+      }
+    }catch(e){ console.error('Error revisando actualizaciones en la nube:',e); }
+  }
+  if(!localG){ startGame(type); return; }
+  G=localG;
+  if(!G.type) G.type=type;
+  G=ensureGameState(G); // Migrar datos si es necesario
+  window.G=G;
+  const b=BUSINESSES[type]||G._bizDef||{icon:'🏢',name:type};
+  document.getElementById('landing').style.display='none';
+  launchApp(`${b.icon||''} ${b.name||type}`.trim(), `Bienvenido de nuevo a "${b.name||type}"`);
 }
 
 function deleteBusiness(type, name, e){
