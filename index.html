@@ -236,8 +236,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* ── TOOLTIPS ── */
 .tooltip-wrap{position:relative;display:inline-flex;align-items:center;gap:0.3rem;}
 .tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--teal);color:white;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;line-height:1;}
-.tooltip-box{position:absolute;left:50%;transform:translateX(-50%);top:calc(100% + 8px);background:var(--dark);color:white;font-size:0.78rem;padding:0.6rem 0.9rem;border-radius:8px;z-index:999;opacity:0;pointer-events:none;transition:opacity 0.2s;width:230px;text-align:left;line-height:1.45;}
-.tooltip-wrap:hover .tooltip-box{opacity:1;}
+.js-tooltip{position:fixed;background:var(--dark);color:white;font-size:0.78rem;padding:0.6rem 0.9rem;border-radius:8px;z-index:9999;pointer-events:none;width:230px;text-align:left;line-height:1.45;opacity:0;transition:opacity 0.15s;}
+.js-tooltip.show{opacity:1;}
 /* ── PASSWORD EYE ── */
 .pass-wrap{position:relative;}
 .pass-wrap input{width:100%;padding-right:2.5rem;}
@@ -407,8 +407,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div class="chart-card">
             <div class="sec-title">Lo que has vendido cada día
               <span class="tooltip-wrap" style="margin-left:0.3rem">
-                <span class="tooltip-icon">?</span>
-                <span class="tooltip-box">Esta gráfica muestra cuánto dinero entraste cada día. Si la línea sube, ¡vas mejor!</span>
+                <span class="tooltip-icon" data-tip="Esta gráfica muestra cuánto dinero entraste cada día. Si la línea sube, ¡vas mejor!">?</span>
               </span>
             </div>
             <div style="position:relative;height:160px"><canvas id="salesChart"></canvas></div>
@@ -416,8 +415,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div class="chart-card">
             <div class="sec-title">Qué productos vendiste más
               <span class="tooltip-wrap" style="margin-left:0.3rem">
-                <span class="tooltip-icon">?</span>
-                <span class="tooltip-box">Muestra qué productos te generan más dinero. Los colores más grandes son los que más vendes.</span>
+                <span class="tooltip-icon" data-tip="Muestra qué productos te generan más dinero. Los colores más grandes son los que más vendes.">?</span>
               </span>
             </div>
             <div style="position:relative;height:160px"><canvas id="pieChart"></canvas></div>
@@ -466,8 +464,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <div class="form-group" style="max-width:120px">
               <label>
                 <span class="tooltip-wrap">Precio de venta ($)
-                  <span class="tooltip-icon">?</span>
-                  <span class="tooltip-box">Es el valor al que tú le vendes el producto al cliente. Ejemplo: vendes una tela a $25.000</span>
+                  <span class="tooltip-icon" data-tip="Es el valor al que tú le vendes el producto al cliente. Ejemplo: vendes una tela a $25.000">?</span>
                 </span>
               </label>
               <input type="text" inputmode="numeric" id="newProdPrice" placeholder="50.000" oninput="formatMoneyInput(this)" onchange="formatMoneyInput(this)">
@@ -475,8 +472,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             <div class="form-group" style="max-width:120px">
               <label>
                 <span class="tooltip-wrap">Costo unitario ($)
-                  <span class="tooltip-icon">?</span>
-                  <span class="tooltip-box">Es lo que tú pagaste para conseguir ese producto. La diferencia entre el precio y el costo es tu ganancia.</span>
+                  <span class="tooltip-icon" data-tip="Es lo que tú pagaste para conseguir ese producto. La diferencia entre el precio y el costo es tu ganancia.">?</span>
                 </span>
               </label>
               <input type="text" inputmode="numeric" id="newProdCost" placeholder="25.000" oninput="formatMoneyInput(this)" onchange="formatMoneyInput(this)">
@@ -2352,20 +2348,22 @@ function renderCharts(){
 
 function renderFinStats(){
   const m=getFinancialMetrics();
+  const tip=(t)=>`<span class="tooltip-wrap"><span class="tooltip-icon" data-tip="${escapeHTML(t)}">?</span></span>`;
   document.getElementById('finGrid').innerHTML=`
-    <div class="stat-card"><div class="stat-label">Ingresos totales</div><div class="stat-value">${fmtK(m.totalRevenue)}</div><div class="stat-sub">Todo lo que has vendido</div></div>
-    <div class="stat-card"><div class="stat-label">Costo de lo vendido</div><div class="stat-value">${fmtK(m.totalCOGS)}</div><div class="stat-sub">Costo de productos vendidos</div></div>
-    <div class="stat-card"><div class="stat-label">Utilidad bruta</div><div class="stat-value" style="color:${m.grossProfit>=0?'var(--teal)':'#e57373'}">${fmtK(m.grossProfit)}</div><div class="stat-sub">Margen bruto: ${m.grossMargin}%</div></div>
-    <div class="stat-card"><div class="stat-label">Gastos operativos</div><div class="stat-value">${fmtK(m.totalOperatingExpenses)}</div><div class="stat-sub">Solo días ya cerrados</div></div>
-    <div class="stat-card"><div class="stat-label">Utilidad neta</div><div class="stat-value" style="color:${m.netProfit>=0?'var(--teal)':'#e57373'}">${fmtK(m.netProfit)}</div><div class="stat-sub">Margen neto: ${m.netMargin}%</div></div>
-    <div class="stat-card"><div class="stat-label">ROI sobre capital inicial</div><div class="stat-value">${m.roi}%</div><div class="stat-sub">Retorno sobre tu inversión inicial</div></div>`;
+    <div class="stat-card"><div class="stat-label">Total vendido ${tip('Es todo el dinero que te han pagado los clientes por lo que has vendido, desde que empezaste — sin quitarle nada todavía.')}</div><div class="stat-value">${fmtK(m.totalRevenue)}</div><div class="stat-sub">Todo lo que has vendido</div></div>
+    <div class="stat-card"><div class="stat-label">Lo que te costó ${tip('Es lo que a TI te costó comprar o hacer los productos que vendiste — no lo que le cobraste al cliente, sino lo que pagaste tú.')}</div><div class="stat-value">${fmtK(m.totalCOGS)}</div><div class="stat-sub">Costo de productos vendidos</div></div>
+    <div class="stat-card"><div class="stat-label">Ganancia antes de gastos ${tip('Es cuánto te queda después de descontar solo el costo de lo que vendiste — todavía SIN restar arriendo, servicios ni gastos del negocio.')}</div><div class="stat-value" style="color:${m.grossProfit>=0?'var(--teal)':'#e57373'}">${fmtK(m.grossProfit)}</div><div class="stat-sub">De cada $100 que vendes, te quedan $${m.grossMargin} antes de gastos</div></div>
+    <div class="stat-card"><div class="stat-label">Gastos del negocio ${tip('Es lo que gastas para mantener el negocio funcionando — arriendo, servicios, internet — sin importar si vendiste mucho, poco o nada. Solo cuenta los días que ya cerraste.')}</div><div class="stat-value">${fmtK(m.totalOperatingExpenses)}</div><div class="stat-sub">Solo días ya cerrados</div></div>
+    <div class="stat-card"><div class="stat-label">Ganancia final ${tip('El número MÁS importante: lo que de verdad te queda después de pagar todo — el producto y los gastos del negocio juntos. Si es positivo, vas ganando.')}</div><div class="stat-value" style="color:${m.netProfit>=0?'var(--teal)':'#e57373'}">${fmtK(m.netProfit)}</div><div class="stat-sub">De cada $100 que vendes, te quedan $${m.netMargin} de ganancia real</div></div>
+    <div class="stat-card"><div class="stat-label">Retorno de tu inversión ${tip('Te dice qué tan bien está rindiendo la plata con la que empezaste el negocio. Se calcula: (Ganancia final ÷ Capital inicial) × 100.')}</div><div class="stat-value">${m.roi}%</div><div class="stat-sub">Cuánto has recuperado de lo que invertiste</div></div>`;
+  if(window.initTooltips) initTooltips();
   const ctx=document.getElementById('finChart').getContext('2d');
   if(finChartInst) finChartInst.destroy();
   const labels=G.history.map(h=>'Día '+h.day);
   const profits=G.history.map(h=>h.profit);
   const incs=G.history.map(h=>h.income);
   if(!labels.length){labels.push('—');profits.push(0);incs.push(0);}
-  finChartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Ingresos',data:incs,backgroundColor:'rgba(42,157,143,0.7)',borderRadius:6},{label:'Utilidad',data:profits,backgroundColor:'rgba(82,214,138,0.85)',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false}}}}});
+  finChartInst=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Total vendido',data:incs,backgroundColor:'rgba(42,157,143,0.7)',borderRadius:6},{label:'Ganancia final',data:profits,backgroundColor:'rgba(82,214,138,0.85)',borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.04)'}},x:{grid:{display:false}}}}});
 }
 
 function saveProjection(){
@@ -3027,7 +3025,44 @@ function renderAll(){
   renderSaleLog(); renderInventory(); renderFinStats();
   renderChecklist(); renderChallenge(); renderLogros();
   renderReportes(); renderExpensesConfig(); renderBizInfo(); renderProjection(); renderSavedProjections();
+  initTooltips();
 }
+
+// ── Tooltips que flotan libres, sin quedar cortados por ninguna tarjeta ──
+let _tipEl=null;
+function initTooltips(){
+  if(!_tipEl){
+    _tipEl=document.createElement('div');
+    _tipEl.className='js-tooltip';
+    document.body.appendChild(_tipEl);
+    document.addEventListener('click',()=>{ _tipEl.classList.remove('show'); });
+  }
+  document.querySelectorAll('.tooltip-icon[data-tip]').forEach(icon=>{
+    if(icon._tipBound) return;
+    icon._tipBound=true;
+    const showTip=()=>{
+      _tipEl.textContent=icon.getAttribute('data-tip');
+      const r=icon.getBoundingClientRect();
+      let left=r.left+r.width/2-115;
+      left=Math.max(8,Math.min(left, window.innerWidth-230-8));
+      _tipEl.style.left=left+'px';
+      _tipEl.style.top=(r.bottom+8)+'px';
+      _tipEl.classList.add('show');
+      requestAnimationFrame(()=>{
+        const tr=_tipEl.getBoundingClientRect();
+        if(tr.bottom>window.innerHeight-8) _tipEl.style.top=(r.top-tr.height-8)+'px';
+      });
+    };
+    icon.addEventListener('mouseenter',showTip);
+    icon.addEventListener('mouseleave',()=>{ _tipEl.classList.remove('show'); });
+    icon.addEventListener('click',(e)=>{
+      e.stopPropagation();
+      if(_tipEl.classList.contains('show')){ _tipEl.classList.remove('show'); return; }
+      showTip();
+    });
+  });
+}
+window.initTooltips=initTooltips;
 
 // ══════════════════ INIT ══════════════════
 // ══════════════════ INICIALIZAR EVENTOS AL CARGAR ══════════════════
