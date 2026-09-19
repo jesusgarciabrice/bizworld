@@ -1247,10 +1247,20 @@ async function reindexBusinessInCloud(uid,type){
   try{
     await fns.setDoc(fns.doc(db,'users',uid),{businesses:fns.arrayUnion(type)},{merge:true});
     const ref=fns.doc(db,'gameData',uid+'_'+type);
-    const existing=await fns.getDoc(ref);
-    if(!existing.exists()){
-      const local=localStorage.getItem(`bw_${uid}_${type}`);
-      if(local) await fns.setDoc(ref, JSON.parse(local));
+    const cloudDoc=await fns.getDoc(ref);
+    const localKey=`bw_${uid}_${type}`;
+    const local=localStorage.getItem(localKey);
+    const localG=local?JSON.parse(local):null;
+    if(!cloudDoc.exists()){
+      // Nada en la nube todavía: subimos lo local, si lo hay
+      if(localG) await fns.setDoc(ref, localG);
+    } else {
+      const cloudG=cloudDoc.data();
+      if(!localG || (cloudG.updatedAt||0) > (localG.updatedAt||0)){
+        // La nube tiene algo más nuevo (ej: avanzaste desde otro dispositivo) — actualizamos este navegador
+        localStorage.setItem(localKey, JSON.stringify(cloudG));
+        renderAllBusinesses(); // refrescar la tarjeta con el día correcto, sin que el usuario tenga que entrar
+      }
     }
   }catch(e){ console.error('Error reindexando negocio en la nube:',e); toast('⚠️ No se pudo guardar "'+type+'" en la nube: '+(e?.code||e?.message||'error desconocido')); }
 }
