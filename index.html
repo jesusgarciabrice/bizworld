@@ -236,7 +236,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* ── TOOLTIPS ── */
 .tooltip-wrap{position:relative;display:inline-flex;align-items:center;gap:0.3rem;}
 .tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--teal);color:white;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;line-height:1;}
-.tooltip-box{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 8px);background:var(--dark);color:white;font-size:0.78rem;padding:0.5rem 0.8rem;border-radius:8px;white-space:nowrap;z-index:999;opacity:0;pointer-events:none;transition:opacity 0.2s;max-width:220px;white-space:normal;text-align:left;line-height:1.4;}
+.tooltip-box{position:absolute;left:50%;transform:translateX(-50%);top:calc(100% + 8px);background:var(--dark);color:white;font-size:0.78rem;padding:0.5rem 0.8rem;border-radius:8px;white-space:nowrap;z-index:999;opacity:0;pointer-events:none;transition:opacity 0.2s;max-width:220px;white-space:normal;text-align:left;line-height:1.4;}
 .tooltip-wrap:hover .tooltip-box{opacity:1;}
 /* ── PASSWORD EYE ── */
 .pass-wrap{position:relative;}
@@ -458,16 +458,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
           <div class="form-row" id="buyFormRow"></div>
           <button class="btn btn-primary" onclick="buyStock()">📦 Confirmar compra</button>
         </div>
-        <div class="sec-title">Insumos operativos</div>
-        <div class="chart-card" style="margin-bottom:1.5rem">
-          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Cosas que tu negocio necesita para funcionar pero que no vendes directamente (cucharas, servilletas, bolsas, empaques...). A diferencia de los gastos fijos, estos NO se descuentan solos cada día: cuando se te acaben, dale a "Reponer" y se descuenta de tu capital en ese momento — como pasaría en la vida real.</p>
-          <div id="suppliesList"></div>
-          <div class="form-row" style="margin-top:0.6rem">
-            <div class="form-group"><label>Nombre del insumo</label><input type="text" id="newSupplyName" placeholder="Ej: Cucharas desechables x100"></div>
-            <div class="form-group" style="max-width:150px"><label>Costo de reposición ($)</label><input type="text" inputmode="numeric" id="newSupplyCost" placeholder="25.000" oninput="formatMoneyInput(this)" onchange="formatMoneyInput(this)"></div>
-          </div>
-          <button class="btn btn-outline btn-sm" onclick="addSupply()">➕ Agregar insumo</button>
-        </div>
         <div class="sec-title">Agregar nuevo producto</div>
         <div class="chart-card" style="margin-bottom:1.5rem">
           <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Agrega productos o servicios nuevos a tu catálogo en cualquier momento.</p>
@@ -510,6 +500,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
             </div>
           </div>
           <button class="btn btn-primary" onclick="addNewProduct()">➕ Agregar producto</button>
+        </div>
+        <div class="sec-title">Insumos operativos</div>
+        <div class="chart-card" style="margin-bottom:1.5rem">
+          <p style="font-size:0.85rem;color:var(--muted);margin-bottom:1rem">Cosas que tu negocio necesita para funcionar pero que no vendes directamente (cucharas, servilletas, bolsas, empaques...). A diferencia de los gastos fijos, estos NO se descuentan solos cada día: cuando se te acaben, dale a "Reponer" y se descuenta de tu capital en ese momento — como pasaría en la vida real.</p>
+          <div id="suppliesList"></div>
+          <div class="form-row" style="margin-top:0.6rem">
+            <div class="form-group"><label>Nombre del insumo</label><input type="text" id="newSupplyName" placeholder="Ej: Cucharas desechables x100"></div>
+            <div class="form-group" style="max-width:150px"><label>Costo de reposición ($)</label><input type="text" inputmode="numeric" id="newSupplyCost" placeholder="25.000" oninput="formatMoneyInput(this)" onchange="formatMoneyInput(this)"></div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="addSupply()">➕ Agregar insumo</button>
         </div>
         <div class="sec-title">Gastos fijos mensuales de tu negocio</div>
         <div class="chart-card">
@@ -1221,7 +1221,7 @@ async function syncFromCloud(uid){
         localStorage.setItem(localKey, JSON.stringify(gDoc.data()));
       }
     }
-  }catch(e){ console.error('Error trayendo datos de la nube:',e); }
+  }catch(e){ console.error('Error trayendo datos de la nube:',e); toast('⚠️ No se pudo traer tus negocios de la nube: '+(e?.code||e?.message||'error desconocido')); }
 }
 window.syncFromCloud=syncFromCloud;
 
@@ -1238,7 +1238,7 @@ async function reindexBusinessInCloud(uid,type){
       const local=localStorage.getItem(`bw_${uid}_${type}`);
       if(local) await fns.setDoc(ref, JSON.parse(local));
     }
-  }catch(e){ console.error('Error reindexando negocio en la nube:',e); }
+  }catch(e){ console.error('Error reindexando negocio en la nube:',e); toast('⚠️ No se pudo guardar "'+type+'" en la nube: '+(e?.code||e?.message||'error desconocido')); }
 }
 window.reindexBusinessInCloud=reindexBusinessInCloud;
 
@@ -1399,9 +1399,8 @@ function renderAllBusinesses(){
         const g=JSON.parse(localStorage.getItem(k));
         if(g && g.type && g._bizDef){
           if(!savedBusinesses.find(s=>s.type===g.type)){
-            const icon=getBizIcon(g._bizDef.type||g._bizDef.name||'');
             savedBusinesses.push({
-              type:g.type, name:g._bizDef.name, icon:icon,
+              type:g.type, name:g._bizDef.name, icon:'',
               desc:g._bizDef.type||'Negocio personalizado',
               day:g.day||1, capital:g.capital||0, saved:true, custom:true
             });
@@ -1535,12 +1534,27 @@ function preloadDemo(type){
   G.capital=b.capital+G.sales.reduce((a,s)=>a+s.total,0)+G.todayIncome-G.history.reduce((a,h)=>a+h.expense,0);
 }
 
-function startGame(type){
+async function startGame(type){
   document.getElementById('landing').style.display='none';
   const b=BUSINESSES[type];
   const uid=window._currentUser?.uid;
-  if(!loadBusiness(type)){
-    // Solo crear negocio nuevo si realmente no existe
+  let foundLocally=loadBusiness(type);
+  if(!foundLocally && uid && uid!=='demo' && window._fbFns && window._fbDb){
+    // Antes de crear uno nuevo, revisamos la nube por si ya existe (ej: creado desde otro dispositivo
+    // y todavía no había sincronizado con este). Así nunca se pisa un negocio que ya iba avanzado.
+    try{
+      const fns=window._fbFns, db=window._fbDb;
+      const cloudDoc=await fns.getDoc(fns.doc(db,'gameData',uid+'_'+type));
+      if(cloudDoc.exists()){
+        G=cloudDoc.data();
+        localStorage.setItem(bizKey(type), JSON.stringify(G));
+        foundLocally=true;
+        toast('Encontramos este negocio ya guardado en tu cuenta — cargando tu progreso.');
+      }
+    }catch(e){ console.error('Error revisando la nube antes de crear negocio:',e); }
+  }
+  if(!foundLocally){
+    // Solo crear negocio nuevo si realmente no existe ni local ni en la nube
     G={type,day:1,capital:b.capital,products:b.products.map(p=>({...p})),
       expenses:b.expenses,sales:[],purchases:[],history:[],todaySales:[],
       todayIncome:0,achievements:{},activity:{},projections:[],
@@ -1826,11 +1840,11 @@ function saveCustomBusiness(){
   const customKey='custom_'+Date.now();
   G={type:customKey,day:1,capital,products,expenses,supplies,monthlyExpenses:monthlyExpensesG,sales:[],purchases:[],history:[],todaySales:[],todayIncome:0,achievements:{},activity:{},projections:[],todayExtraExpenses:0,
     createdAt:new Date().toISOString(), capitalInicial:capital,
-    _bizDef:{name,icon:getBizIcon(type||name),type:type,capital,expenses,products,
+    _bizDef:{name,icon:'',type:type,capital,expenses,products,
       capitalDeclarado,onceExpenses,monthlyExpenses,variableExpenses,onceTotal,monthlyTotal,variableTotal,stockCost}};
   closeCustomModal();
   document.getElementById('landing').style.display='none';
-  launchApp(`⚙️ ${name}`,`Bienvenido a tu negocio "${name}" ⚙️`);
+  launchApp(name,`Bienvenido a tu negocio "${name}"`);
 }
 
 // ══════════════════ JUEGO ══════════════════
